@@ -1,4 +1,4 @@
-package sample;
+package scrabble;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;

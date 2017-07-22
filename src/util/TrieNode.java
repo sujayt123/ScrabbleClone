@@ -40,4 +40,17 @@ public class TrieNode {
             isWord = true;
         }
     }
+
+    public TrieNode getNodeForPrefix(String s, int index) {
+        if (index == s.length())
+        {
+            return this;
+        }
+        // Otherwise index is less than s.length.
+        if (!outgoingEdges.containsKey(s.charAt(index)))
+        {
+            return null;
+        }
+        return outgoingEdges.get(s.charAt(index)).getNodeForPrefix(s, index + 1);
+    }
 }

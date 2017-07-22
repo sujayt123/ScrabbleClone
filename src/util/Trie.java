@@ -28,4 +28,9 @@ public class Trie {
         System.out.println("Read file into trie, " + TrieNode.numberInsertions + " insertions");
     }
 
+    public TrieNode getNodeForPrefix(String s)
+    {
+        return root.getNodeForPrefix(s, 0);
+    }
+
 }

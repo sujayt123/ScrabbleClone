@@ -1,13 +1,13 @@
-package sample;
+package scrabble;
 
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import util.Trie;
+import util.TrieNode;
 
 import java.net.URL;
 import java.util.*;
@@ -62,10 +62,10 @@ public class Controller implements Initializable {
         crossCheckSets = new HashSet[15][15];
         IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
             crossCheckSets[i][j] = new HashSet<>();
-            for(char alphabet = 'a'; alphabet <= 'z';alphabet++) {
-                crossCheckSets[i][j].add(alphabet);
-            }
         }));
+
+        computeCrossCheckSets();
+
         /*
          * Initialize the bindings to the viewmodel (view's understanding of board) and the board cells housing them.
          * Also mark the GridPane cells as valid targets for a drag n' drop motion.
@@ -325,7 +325,31 @@ public class Controller implements Initializable {
     }
 
     public void computeCrossCheckSets() {
-
+        IntStream.range(0, 15).forEach(i -> {
+            IntStream.range(0, 15).forEach(j -> {
+                crossCheckSets[i][j].clear();
+                StringBuilder verticalPrefixToThisSquare = new StringBuilder();
+                for (int h = 0; h < i; h++)
+                {
+                    verticalPrefixToThisSquare.append(mainModel[h][j]);
+                }
+                TrieNode prefixNode = trie.getNodeForPrefix(verticalPrefixToThisSquare.toString());
+                if (prefixNode != null)
+                {
+                    StringBuilder verticalSuffixToThisSquare = new StringBuilder();
+                    for (int h = i + 1; h < 15; h++)
+                    {
+                        verticalSuffixToThisSquare.append(mainModel[h][j]);
+                    }
+                    for (char c: prefixNode.getOutgoingEdges().keySet())
+                    {
+                        if (prefixNode.getNodeForPrefix(c + verticalSuffixToThisSquare.toString(), 0) != null) {
+                            crossCheckSets[i][j].add(c);
+                        }
+                    }
+                }
+            });
+        });
     }
 
 
