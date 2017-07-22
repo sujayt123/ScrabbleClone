@@ -327,8 +327,9 @@ public class Controller implements Initializable {
             int min_row_ind = changed_tile_coordinates.stream().map(Pair::getKey).reduce((x, y) -> x < y ? x : y).get();
             int max_row_ind = changed_tile_coordinates.stream().map(Pair::getKey).reduce((x, y) -> x > y ? x : y).get();
 
-            valid = valid && IntStream.rangeClosed(min_row_ind, max_row_ind).mapToObj(
-                    i -> viewModel[i][changed_tile_coordinates.get(0).getValue()] != null
+            valid = valid && IntStream.rangeClosed(min_row_ind, max_row_ind)
+                    .mapToObj(
+                        i -> viewModel[i][changed_tile_coordinates.get(0).getValue()] != null
                             && viewModel[i][changed_tile_coordinates.get(0).getValue()].getText().length() == 1)
                     .reduce((x, y) -> x && y).get();
 
@@ -342,10 +343,11 @@ public class Controller implements Initializable {
             valid = valid && partOfValidHorizontalWord(changed_tile_coordinates.get(0));
 
             // Ensure that the word is indeed connected horizontally (and is not just two disjoint words in the same row)
-            int min_col_ind = changed_tile_coordinates.stream().map((x)->x.getValue()).reduce((x, y) -> x < y ? x : y).get();
-            int max_col_ind = changed_tile_coordinates.stream().map((x)->x.getValue()).reduce((x, y) -> x > y ? x : y).get();
-            valid = valid && IntStream.rangeClosed(min_col_ind, max_col_ind).mapToObj(
-                    j -> viewModel[changed_tile_coordinates.get(0).getKey()][j] != null
+            int min_col_ind = changed_tile_coordinates.stream().map(Pair::getValue).reduce((x, y) -> x < y ? x : y).get();
+            int max_col_ind = changed_tile_coordinates.stream().map(Pair::getValue).reduce((x, y) -> x > y ? x : y).get();
+            valid = valid && IntStream.rangeClosed(min_col_ind, max_col_ind)
+                    .mapToObj(
+                        j -> viewModel[changed_tile_coordinates.get(0).getKey()][j] != null
                             && viewModel[changed_tile_coordinates.get(0).getKey()][j].getText().length() == 1)
                     .reduce((x, y) -> x && y).get();
 
@@ -369,15 +371,10 @@ public class Controller implements Initializable {
             valid = valid && changed_tile_coordinates.stream().filter(x -> {
                 int r = x.getKey();
                 int c = x.getValue();
-                if (r > 0 && mainModel[r-1][c] != '\0')
-                    return true;
-                if (r < 14 && mainModel[r+1][c] != '\0')
-                    return true;
-                if (c > 0 && mainModel[r][c-1] != '\0')
-                    return true;
-                if (c < 14 && mainModel[r][c+1] != '\0')
-                    return true;
-                return false;
+                return (r > 0 && mainModel[r-1][c] != '\0')
+                        || (r < 14 && mainModel[r+1][c] != '\0')
+                        || (c > 0 && mainModel[r][c-1] != '\0')
+                        || (c < 14 && mainModel[r][c+1] != '\0');
             }).count() > 0;
         }
         System.out.println("Checkpt 3: valid? " + valid);
@@ -452,7 +449,11 @@ public class Controller implements Initializable {
         return (tn != null && tn.isWord());
     }
 
-    public void makePlayerMove()
+    /**
+     * Finalizes the move for the player, assuming it was valid. Propagates changes
+     * from viewmodel to model.
+     */
+    private void makePlayerMove()
     {
         System.out.println("Valid move");
 
@@ -467,30 +468,25 @@ public class Controller implements Initializable {
         if (!playWasHorizontal)
         {
             score += scoreVertical(changed_tile_coordinates.get(0));
-            score += changed_tile_coordinates.stream().map(x -> scoreHorizontal(x)).reduce((x,y)->x+y).get();
+            score += changed_tile_coordinates.stream().map(this::scoreHorizontal).reduce((x,y)->x+y).get();
         }
         else
         {
             score += scoreHorizontal(changed_tile_coordinates.get(0));
-            score += changed_tile_coordinates.stream().map(x -> scoreVertical(x)).reduce((x,y)->x+y).get();
+            score += changed_tile_coordinates.stream().map(this::scoreVertical).reduce((x,y)->x+y).get();
         }
 
         playerScore.setText("Player TileHelper:" + score);
 
         // Step 2: propagate viewModel to model
-        changed_tile_coordinates.forEach(pair -> {
-            int row = pair.getKey();
-            int col = pair.getValue();
-            mainModel[row][col] = viewModel[row][col].getText().charAt(0);
-        });
-
-        // Step 3: remove X tiles from the rack
         changed_tile_coordinates.forEach(p -> {
             int row = p.getKey();
             int col = p.getValue();
+            mainModel[row][col] = viewModel[row][col].getText().charAt(0);
         });
 
-        // Step 4: take as many of X tiles from the bag as you can and give them to the player
+
+        // Step 3: take as many tiles from the bag as you can (up to the number removed) and give them to the player
         changed_tile_coordinates.forEach((x) -> {
             playerHand.remove((Character)viewModel[x.getKey()][x.getValue()].getText().charAt(0));
             Character c = tilesRemaining.poll();
@@ -504,8 +500,6 @@ public class Controller implements Initializable {
         changed_tile_coordinates.clear();
 
         // TODO Step 6: let CPU make its move
-
-
 
     }
 
@@ -526,6 +520,7 @@ public class Controller implements Initializable {
 
         int row = pair.getKey();
         int col = pair.getValue();
+
         for (int c = col; c >= 0; c--)
         {
             if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
@@ -709,6 +704,4 @@ public class Controller implements Initializable {
             });
         });
     }
-
-
 }
