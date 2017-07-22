@@ -281,6 +281,9 @@ public class Controller implements Initializable {
         });
     }
 
+    /**
+     * Attempts a player move. Triggered on click of "Move" button in GUI.
+     */
     public void attemptPlayerMove()
     {
         if (isValidMove())
@@ -299,6 +302,10 @@ public class Controller implements Initializable {
         }
     }
 
+    /**
+     * Checks if the viewModel is consistent with a valid move.
+     * @return
+     */
     boolean isValidMove()
     {
         boolean valid = true;
