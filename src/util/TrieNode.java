@@ -9,6 +9,7 @@ import java.util.Map;
 public class TrieNode {
 
     private Map<Character, TrieNode> outgoingEdges;
+    public static int numberInsertions = 0;
     private boolean isWord;
 
     public TrieNode(boolean isWord)
@@ -26,6 +27,7 @@ public class TrieNode {
     }
 
     void insertWord(String s, int index) {
+        numberInsertions++;
         if (index < s.length())
         {
                 TrieNode child = outgoingEdges.containsKey(s.charAt(index)) ?

@@ -13,7 +13,7 @@ public class Trie {
     {
         root = new TrieNode(false);
 
-        File file = new File("dictionary.txt");
+        File file = new File("./src/util/dictionary.txt");
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -25,6 +25,7 @@ public class Trie {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        System.out.println("Read file into trie, " + TrieNode.numberInsertions + " insertions");
     }
 
 }
