@@ -17,8 +17,6 @@ import java.util.stream.IntStream;
 
 public class Controller implements Initializable {
 
-    // TODO Refactor redundant code into reusable segments and avoid having a jumbled mix of loops and streams everywhere.
-
     /**
      *  Access to the GUI representation of the board. Useful for defining drag-and-drop events.
      */
@@ -186,7 +184,6 @@ public class Controller implements Initializable {
                                  * Change the text color of the pane to Black if needed.
                                  * This is to ensure that special squares are distinct from played tiles.
                                  */
-
                                 viewModel[row][col].getStyleClass().add("black-text");
                             }
                             viewModel[row][col].setText(db.getString());
@@ -197,7 +194,7 @@ public class Controller implements Initializable {
                         /* let the source know whether the string was successfully
                          * transferred and used */
                         event.setDropCompleted(success);
-                        changed_tile_coordinates.add(new Pair(row, col));
+                        changed_tile_coordinates.add(new Pair<>(row, col));
 
                         event.consume();
                 });
@@ -304,9 +301,9 @@ public class Controller implements Initializable {
 
     /**
      * Checks if the viewModel is consistent with a valid move.
-     * @return
+     * @return if the player move was valid
      */
-    boolean isValidMove()
+    private boolean isValidMove()
     {
         boolean valid = true;
 
@@ -384,34 +381,73 @@ public class Controller implements Initializable {
     }
 
     /**
+     * Builds the vertical word in which the letter at the provided coordinate in the ViewModel participates.
+     * @param pair
+     * @return the word itself, as well as the starting index of the word
+     */
+    private Pair<String, Integer> buildVerticalWordForCoordinate(Pair<Integer, Integer> pair)
+    {
+        StringBuilder sb = new StringBuilder();
+        int row = pair.getKey();
+        int col = pair.getValue();
+
+        OptionalInt top_exclusive = IntStream.iterate(row, i -> i - 1)
+                .limit(row + 1)
+                .filter(r -> !(viewModel[r][col] != null && viewModel[r][col].getText().length() == 1))
+                .findFirst();
+        OptionalInt bot_exclusive = IntStream.range(row + 1, 15)
+                .filter(r -> !(viewModel[r][col] != null && viewModel[r][col].getText().length() == 1))
+                .findFirst();
+        int top_exc = top_exclusive.isPresent() ? top_exclusive.getAsInt(): -1;
+        int bot_exc = bot_exclusive.isPresent() ? bot_exclusive.getAsInt(): 15;
+        Boolean endOfWordSeen = false;
+        IntStream.range(top_exc + 1, bot_exc)
+                .forEach(r ->
+                        sb.append(viewModel[r][col].getText().charAt(0))
+                );
+
+        return new Pair<>(sb.toString(), top_exc + 1);
+    }
+
+    /**
+     * Builds the horizontal word in which the letter at the provided coordinate in the ViewModel participates.
+     * @param pair
+     * @return the word itself, as well as the starting index of the word
+     */
+    private Pair<String, Integer> buildHorizontalWordForCoordinate(Pair<Integer, Integer> pair)
+    {
+        StringBuilder sb = new StringBuilder();
+        int row = pair.getKey();
+        int col = pair.getValue();
+
+        OptionalInt left_exclusive = IntStream.iterate(col, i -> i - 1)
+                .limit(col + 1)
+                .filter(c -> !(viewModel[row][c] != null && viewModel[row][c].getText().length() == 1))
+                .findFirst();
+        OptionalInt right_exclusive = IntStream.range(col + 1, 15)
+                .filter(c -> !(viewModel[row][c] != null && viewModel[row][c].getText().length() == 1))
+                .findFirst();
+        int left_exc = left_exclusive.isPresent() ? left_exclusive.getAsInt(): -1;
+        int right_exc = right_exclusive.isPresent() ? right_exclusive.getAsInt(): 15;
+        Boolean endOfWordSeen = false;
+        IntStream.range(left_exc + 1, right_exc)
+                .forEach(c ->
+                        sb.append(viewModel[row][c].getText().charAt(0))
+                );
+
+        return new Pair<>(sb.toString(), left_exc + 1);
+    }
+
+    /**
      * Is the letter that is at location "pair" in the GUI part of a valid word in the vertical direction?
      * @param pair an (x,y) coordinate in the GUI denoting a location of an inserted tile
      */
     private boolean partOfValidVerticalWord(Pair<Integer, Integer> pair) {
-        StringBuilder sb = new StringBuilder();
-        int row = pair.getKey();
-        int col = pair.getValue();
-        sb.append(viewModel[row][col].getText().charAt(0));
-        for (int r = row - 1; r >= 0; r--)
-        {
-            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
-            {
-                sb.insert(0, viewModel[r][col].getText().charAt(0));
-            }
-            else break;
-        }
-        for (int r = row + 1; r < 15; r++)
-        {
-            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
-            {
-                sb.append(viewModel[r][col].getText().charAt(0));
-            }
-            else break;
-        }
+        String verticalWord = buildVerticalWordForCoordinate(pair).getKey();
         // Now that we have the vertical word we've formed, let's see whether it is valid.
-        if (sb.length() == 1)
+        if (verticalWord.length() == 1)
             return true;
-        TrieNode tn = trie.getNodeForPrefix(sb.toString().toLowerCase());
+        TrieNode tn = trie.getNodeForPrefix(verticalWord.toLowerCase());
         return (tn != null && tn.isWord());
     }
 
@@ -420,32 +456,12 @@ public class Controller implements Initializable {
      * @param pair an (x,y) coordinate in the GUI denoting a location of an inserted tile
      */
     private boolean partOfValidHorizontalWord(Pair<Integer, Integer> pair) {
-        StringBuilder sb = new StringBuilder();
-        int row = pair.getKey();
-        int col = pair.getValue();
-        sb.append(viewModel[row][col].getText().charAt(0));
-        for (int c = col - 1; c >= 0; c--)
-        {
-            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
-            {
-                sb.insert(0, viewModel[row][c].getText().charAt(0));
-            }
-            else break;
-        }
-        for (int c = col + 1; c < 15; c++)
-        {
-            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
-            {
-                sb.append(viewModel[row][c].getText().charAt(0));
-            }
-            else break;
-        }
+        String horizontalWord = buildHorizontalWordForCoordinate(pair).getKey();
 
         // Now that we have the vertical word we've formed, let's see whether it is valid.
-        if (sb.length() == 1)
+        if (horizontalWord.length() == 1)
             return true;
-        TrieNode tn = trie.getNodeForPrefix(sb.toString().toLowerCase());
-
+        TrieNode tn = trie.getNodeForPrefix(horizontalWord.toLowerCase());
         return (tn != null && tn.isWord());
     }
 
@@ -476,7 +492,7 @@ public class Controller implements Initializable {
             score += changed_tile_coordinates.stream().map(this::scoreVertical).reduce((x,y)->x+y).get();
         }
 
-        playerScore.setText("Player TileHelper:" + score);
+        playerScore.setText("Player Score:" + score);
 
         // Step 2: propagate viewModel to model
         changed_tile_coordinates.forEach(p -> {
@@ -510,171 +526,114 @@ public class Controller implements Initializable {
      */
     private int scoreHorizontal(Pair<Integer, Integer> pair) {
 
-        // If there is no word (of 2 or more letters) formed, return 0 immediately.
-        int count = 0;
-
-        int score = 0;
-        int letterScore;
-        int dw_count = 0;
-        int tw_count = 0;
-
         int row = pair.getKey();
         int col = pair.getValue();
 
-        for (int c = col; c >= 0; c--)
-        {
-            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
-            {
-                letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
-                // if the bonus wasn't used in a previous turn, it can be used now.
-                if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
-                {
-                    switch(board_cells[row][c].getStyleClass().get(0).substring(0, 2))
-                    {
-                        case "DW":
-                            dw_count++;
-                            break;
-                        case "TW":
-                            tw_count++;
-                            break;
-                        case "DL":
-                            letterScore *= 2;
-                            break;
-                        case "TL":
-                            letterScore *= 3;
-                            break;
-                    }
-                }
-                score += letterScore;
-            }
-            else break;
-            count++;
-        }
-        for (int c = col + 1; c < 15; c++)
-        {
-            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
-            {
-                letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
-                // if the bonus wasn't used in a previous turn, it can be used now.
-                if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
-                {
-                    switch(board_cells[row][c].getStyleClass().get(0).substring(0, 2))
-                    {
-                        case "DW":
-                            dw_count++;
-                            break;
-                        case "TW":
-                            tw_count++;
-                            break;
-                        case "DL":
-                            letterScore *= 2;
-                            break;
-                        case "TL":
-                            letterScore *= 3;
-                            break;
-                    }
-                }
-                score += letterScore;
-            }
-            else break;
-            count++;
-        }
-        if (count <= 1)
+        Pair<String, Integer> p = buildHorizontalWordForCoordinate(pair);
+        int start_index = p.getValue();
+        int length = p.getKey().length();
+
+        // If there is no word (of 2 or more letters) formed, return 0 immediately.
+        if (length == 1)
         {
             return 0;
         }
 
-        for (int i = 0; i < dw_count; i++)
-            score *= 2;
-        for (int i = 0; i < tw_count; i++)
-            score *= 3;
-        System.out.println("score is " + score);
-        return score;
+        Pair<Integer, Pair<Integer, Integer>> wordScoreTuple =
+        IntStream.range(start_index, start_index + length)
+                .mapToObj(c -> c)
+                .reduce(new Pair<>(0, new Pair<>(0, 0)),
+                    (acc, c) -> {
+                        int partialScore = acc.getKey();
+                        int dw_count = acc.getValue().getKey();
+                        int tw_count = acc.getValue().getValue();
+                        int letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
+                        if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0') {
+                            switch (board_cells[row][c].getStyleClass().get(0).substring(0, 2)) {
+                                case "DW":
+                                    dw_count++;
+                                    break;
+                                case "TW":
+                                    tw_count++;
+                                    break;
+                                case "DL":
+                                    letterScore *= 2;
+                                    break;
+                                case "TL":
+                                    letterScore *= 3;
+                                    break;
+                            }
+                        }
+                        return new Pair<>(partialScore + letterScore, new Pair<>(dw_count, tw_count));
+                    }
+                , (pairA, pairB) ->
+                    new Pair<>(pairA.getKey() + pairB.getKey(),
+                            new Pair<>(pairA.getValue().getKey() + pairB.getValue().getKey(),
+                                    pairA.getValue().getValue() + pairB.getValue().getValue()))
+                    );
+
+        int baseScore = wordScoreTuple.getKey();
+        int dw_count = wordScoreTuple.getValue().getKey();
+        int tw_count = wordScoreTuple.getValue().getValue();
+
+        return (int) (baseScore * Math.pow(2, dw_count) * Math.pow(3, tw_count));
     }
 
     private int scoreVertical(Pair<Integer, Integer> pair) {
-        // If there is no word (of 2 or more letters) formed, return 0 immediately.
-        int count = 0;
-
-        int score = 0;
-        int letterScore;
-        int dw_count = 0;
-        int tw_count = 0;
-
         int row = pair.getKey();
         int col = pair.getValue();
-        for (int r = row; r >= 0; r--)
-        {
-            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
-            {
-                letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
-                // if the bonus wasn't used in a previous turn, it can be used now.
-                if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
-                {
-                    switch(board_cells[r][col].getStyleClass().get(0).substring(0, 2))
-                    {
-                        case "DW":
-                            dw_count++;
-                            break;
-                        case "TW":
-                            tw_count++;
-                            break;
-                        case "DL":
-                            letterScore *= 2;
-                            break;
-                        case "TL":
-                            letterScore *= 3;
-                            break;
-                    }
-                }
-                score += letterScore;
-            }
-            else break;
-            count++;
-        }
-        for (int r = row + 1; r < 15; r++)
-        {
-            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
-            {
-                letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
-                // if the bonus wasn't used in a previous turn, it can be used now.
-                if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
-                {
-                    switch(board_cells[r][col].getStyleClass().get(0).substring(0, 2))
-                    {
-                        case "DW":
-                            dw_count++;
-                            break;
-                        case "TW":
-                            tw_count++;
-                            break;
-                        case "DL":
-                            letterScore *= 2;
-                            break;
-                        case "TL":
-                            letterScore *= 3;
-                            break;
-                    }
-                }
-                score += letterScore;
-            }
-            else break;
-            count++;
-        }
-        if (count <= 1)
+
+        Pair<String, Integer> p = buildVerticalWordForCoordinate(pair);
+        int start_index = p.getValue();
+        int length = p.getKey().length();
+
+        // If there is no word (of 2 or more letters) formed, return 0 immediately.
+        if (length == 1)
         {
             return 0;
         }
 
-        for (int i = 0; i < dw_count; i++)
-            score *= 2;
-        for (int i = 0; i < tw_count; i++)
-            score *= 3;
-        System.out.println("score is " + score);
-        return score;
+        Pair<Integer, Pair<Integer, Integer>> wordScoreTuple =
+                IntStream.range(start_index, start_index + length)
+                        .mapToObj(r -> r)
+                        .reduce(new Pair<>(0, new Pair<>(0, 0)),
+                                (acc, r) -> {
+                                    int partialScore = acc.getKey();
+                                    int dw_count = acc.getValue().getKey();
+                                    int tw_count = acc.getValue().getValue();
+                                    int letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
+                                    if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0') {
+                                        switch (board_cells[r][col].getStyleClass().get(0).substring(0, 2)) {
+                                            case "DW":
+                                                dw_count++;
+                                                break;
+                                            case "TW":
+                                                tw_count++;
+                                                break;
+                                            case "DL":
+                                                letterScore *= 2;
+                                                break;
+                                            case "TL":
+                                                letterScore *= 3;
+                                                break;
+                                        }
+                                    }
+                                    return new Pair<>(partialScore + letterScore, new Pair<>(dw_count, tw_count));
+                                }
+                                , (pairA, pairB) ->
+                                        new Pair<>(pairA.getKey() + pairB.getKey(),
+                                                new Pair<>(pairA.getValue().getKey() + pairB.getValue().getKey(),
+                                                        pairA.getValue().getValue() + pairB.getValue().getValue()))
+                        );
+
+        int baseScore = wordScoreTuple.getKey();
+        int dw_count = wordScoreTuple.getValue().getKey();
+        int tw_count = wordScoreTuple.getValue().getValue();
+
+        return (int) (baseScore * Math.pow(2, dw_count) * Math.pow(3, tw_count));
     }
 
-    public void computeCrossCheckSets(int startRowInclusive, int endRowExclusive, int startColInclusive, int endColExclusive) {
+    private void computeCrossCheckSets(int startRowInclusive, int endRowExclusive, int startColInclusive, int endColExclusive) {
         IntStream.range(startRowInclusive, endRowExclusive).forEach(i -> {
             IntStream.range(startColInclusive, endColExclusive).forEach(j -> {
                 crossCheckSets[i][j].clear();
