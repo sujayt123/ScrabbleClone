@@ -7,9 +7,11 @@ import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import util.Trie;
 
 import java.net.URL;
 import java.util.*;
+import java.util.stream.IntStream;
 
 public class Controller implements Initializable {
 
@@ -44,14 +46,26 @@ public class Controller implements Initializable {
 
     private char[] playerHand, cpuHand;
 
+    private HashSet[][] crossCheckSets;
+
     // Work-around for an edge case with JavaFX drag-n-drop implementation
     private static boolean wasDropSuccessful = false;
+
+    private Trie trie;
 
     /**
      * Runs initialization routines right after the view loads.
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        trie = new Trie();
+        crossCheckSets = new HashSet[15][15];
+        IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
+            crossCheckSets[i][j] = new HashSet<>();
+            for(char alphabet = 'a'; alphabet <= 'z';alphabet++) {
+                crossCheckSets[i][j].add(alphabet);
+            }
+        }));
         /*
          * Initialize the bindings to the viewmodel (view's understanding of board) and the board cells housing them.
          * Also mark the GridPane cells as valid targets for a drag n' drop motion.
@@ -309,6 +323,11 @@ public class Controller implements Initializable {
         // take as many of X tiles from the bag as you can and give them to the player
         // let CPU make its move
     }
+
+    public void computeCrossCheckSets() {
+
+    }
+
 
 
 }
