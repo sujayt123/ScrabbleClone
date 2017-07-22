@@ -6,6 +6,8 @@ import javafx.fxml.Initializable;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
+import javafx.util.Pair;
+import util.Score;
 import util.Trie;
 import util.TrieNode;
 
@@ -14,6 +16,8 @@ import java.util.*;
 import java.util.stream.IntStream;
 
 public class Controller implements Initializable {
+
+    // TODO Refactor redundant code into reusable segments and avoid having a jumbled mix of loops and streams everywhere.
 
     /* Access to the GUI representation of the board. Useful for defining drag-and-drop events. */
     private StackPane[][] board_cells = new StackPane[15][15];
@@ -44,7 +48,9 @@ public class Controller implements Initializable {
 
     private Queue<Character> tilesRemaining;
 
-    private char[] playerHand, cpuHand;
+    private List<Character> playerHand, cpuHand;
+
+    private List<Pair<Integer, Integer>> changed_tile_coordinates;
 
     private HashSet[][] crossCheckSets;
 
@@ -53,18 +59,22 @@ public class Controller implements Initializable {
 
     private Trie trie;
 
+    // Flag to indicate if it's the first turn of the game or not.
+    private boolean isFirstTurn = true;
+
     /**
      * Runs initialization routines right after the view loads.
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         trie = new Trie();
+        changed_tile_coordinates = new ArrayList<>();
         crossCheckSets = new HashSet[15][15];
         IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
             crossCheckSets[i][j] = new HashSet<>();
         }));
 
-        computeCrossCheckSets();
+        computeCrossCheckSets(0, 15, 0, 15);
 
         /*
          * Initialize the bindings to the viewmodel (view's understanding of board) and the board cells housing them.
@@ -144,12 +154,14 @@ public class Controller implements Initializable {
                             }
                             viewModel[row][col].setText(db.getString());
 
+
                             success = true;
                         }
                         /* let the source know whether the string was successfully
                          * transferred and used */
                         event.setDropCompleted(success);
                         wasDropSuccessful = true;
+                        changed_tile_coordinates.add(new Pair(row, col));
 
                         event.consume();
                     }
@@ -174,20 +186,20 @@ public class Controller implements Initializable {
         tilesRemaining = new ArrayDeque<>(tileList);
 
         // Prepare each player to receive tiles.
-        playerHand = new char[7];
-        cpuHand = new char[7];
+        playerHand = new ArrayList<>();
+        cpuHand = new ArrayList<>();
 
         // Distribute the starting racks (hereafter referenced as "hands") to the computer and the player.
         for (int i = 0; i < 7; i++)
         {
-            playerHand[i] = tilesRemaining.remove();
-            cpuHand[i] = tilesRemaining.remove();
+            playerHand.add(tilesRemaining.remove());
+            cpuHand.add(tilesRemaining.remove());
         }
 
         // Display the player's hand as stackpanes in the HBox in the bottom of the borderpane layout.
         for (int i = 0; i < 7 ; i++)
         {
-            addTileToUserHand(playerHand[i]);
+            addTileToUserHand(playerHand.get(i));
         }
     }
 
@@ -196,31 +208,31 @@ public class Controller implements Initializable {
      */
     public void recallTiles()
     {
-        for (int i = 0 ; i < 15; i++)
+        changed_tile_coordinates.forEach( pair ->
         {
-            for (int j = 0; j < 15; j++)
-            {
-                if (viewModel[i][j] != null && viewModel[i][j].getText().length() == 1
-                        && viewModel[i][j].getText().charAt(0) != mainModel[i][j])
-                {
-                    addTileToUserHand(viewModel[i][j].getText().charAt(0));
+            int i = pair.getKey();
+            int j = pair.getValue();
+            addTileToUserHand(viewModel[i][j].getText().charAt(0));
 
-                    // Reset the view model's text in accordance with whether it's a special tile.
-                    if (board_cells[i][j].getStyleClass().size() > 0)
-                    {
-                        String specialText = board_cells[i][j].getStyleClass().get(0).substring(0, 2);
-                        viewModel[i][j].setText(specialText);
-                        viewModel[i][j].getStyleClass().remove("black-text");
-                    }
-                    else
-                    {
-                        viewModel[i][j].setText("");
-                    }
-                }
+            // Reset the view model's text in accordance with whether it's a special tile.
+            if (board_cells[i][j].getStyleClass().size() > 0)
+            {
+                String specialText = board_cells[i][j].getStyleClass().get(0).substring(0, 2);
+                viewModel[i][j].setText(specialText);
+                viewModel[i][j].getStyleClass().remove("black-text");
             }
-        }
+            else
+            {
+                viewModel[i][j].setText("");
+            }
+        });
+        changed_tile_coordinates.clear();
     }
 
+    /**
+     * Utility method to add a character to the user's hand in the GUI.
+     * @param letter The character to add to the HBOX housing the user's hand
+     */
     public void addTileToUserHand(char letter)
     {
         StackPane s = new StackPane();
@@ -274,7 +286,7 @@ public class Controller implements Initializable {
         Map<Character, Integer> lettersNotInHand = new HashMap<>();
         for (char c: playerHand)
         {
-            if (!lettersNotInHand.containsKey(c))
+            if (!lettersNotInHand.containsKey(c) && c >= 'A' && c <= 'Z')
             {
                 lettersNotInHand.put(c, 0);
             }
@@ -301,45 +313,418 @@ public class Controller implements Initializable {
     {
         if (isValidMove())
         {
+            statusMessage.setText("Your move has been registered.");
+            statusMessage.getStyleClass().clear();
+            statusMessage.getStyleClass().add("success-text");
+            isFirstTurn = false;
             makePlayerMove();
         }
         else
         {
             statusMessage.setText("That didn't work out so well.");
+            statusMessage.getStyleClass().clear();
             statusMessage.getStyleClass().add("error-text");
         }
     }
 
-    public boolean isValidMove()
+    //TODO Fix in the morning. Take a look at the streams and see whether the filtering and checks are done appropriately.
+    boolean isValidMove()
     {
-        return false;
+        boolean valid = true;
+
+        // Determine if the play is vertical or horizontal.
+        boolean playWasHorizontal = changed_tile_coordinates.stream()
+                .filter(x -> !x.getKey().equals(changed_tile_coordinates.get(0).getKey())).count() == 0;
+
+        boolean playWasVertical = changed_tile_coordinates.stream()
+                .filter(x -> !x.getValue().equals(changed_tile_coordinates.get(0).getValue())).count() == 0;
+
+        valid = valid && (playWasVertical || playWasHorizontal);
+
+        System.out.println("Checkpt 1: valid? " + valid);
+        if (playWasVertical){
+            valid = valid && partOfValidVerticalWord(changed_tile_coordinates.get(0));
+
+            // Ensure that the word is indeed connected vertically (and is not just two disjoint words in the same col)
+            int min_row_ind = changed_tile_coordinates.stream().map((x)->x.getKey()).reduce((x, y) -> x < y ? x : y).get();
+            int max_row_ind = changed_tile_coordinates.stream().map((x)->x.getKey()).reduce((x, y) -> x > y ? x : y).get();
+
+            valid = valid && IntStream.rangeClosed(min_row_ind, max_row_ind).mapToObj(
+                    i -> viewModel[i][changed_tile_coordinates.get(0).getValue()] != null
+                            && viewModel[i][changed_tile_coordinates.get(0).getValue()].getText().length() == 1)
+                    .reduce((x, y) -> x && y).get();
+
+            // Ensure that each letter contributes to a horizontal word correctly.
+            for (Pair pair : changed_tile_coordinates)
+            {
+                valid = valid && partOfValidHorizontalWord(pair);
+            }
+        }
+
+
+        else
+        {
+            valid = valid && partOfValidHorizontalWord(changed_tile_coordinates.get(0));
+
+            // Ensure that the word is indeed connected horizontally (and is not just two disjoint words in the same row)
+            int min_col_ind = changed_tile_coordinates.stream().map((x)->x.getValue()).reduce((x, y) -> x < y ? x : y).get();
+            int max_col_ind = changed_tile_coordinates.stream().map((x)->x.getValue()).reduce((x, y) -> x > y ? x : y).get();
+            valid = valid && IntStream.rangeClosed(min_col_ind, max_col_ind).mapToObj(
+                    j -> viewModel[changed_tile_coordinates.get(0).getKey()][j] != null
+                            && viewModel[changed_tile_coordinates.get(0).getKey()][j].getText().length() == 1)
+                    .reduce((x, y) -> x && y).get();
+
+            // Ensure that each letter contributes to a vertical word correctly.
+
+            for (Pair pair : changed_tile_coordinates)
+            {
+                valid = valid && partOfValidVerticalWord(pair);
+            }
+        }
+        System.out.println("Checkpt 2: valid? " + valid);
+
+        if (isFirstTurn)
+        {
+            valid = valid
+                    && changed_tile_coordinates.indexOf(new Pair(7, 7)) != -1
+                    && changed_tile_coordinates.size() >= 2;
+        }
+        else
+        {
+            // All subsequent turns must consist of a play that is vertically or horizontally adjacent to at
+            // least one other letter of a word that existed before this turn.
+            valid = valid && changed_tile_coordinates.stream().filter(x -> {
+                int r = x.getKey();
+                int c = x.getValue();
+                if (r > 0 && mainModel[r-1][c] != '\0')
+                    return true;
+                if (r < 14 && mainModel[r+1][c] != '\0')
+                    return true;
+                if (c > 0 && mainModel[r][c-1] != '\0')
+                    return true;
+                if (c < 14 && mainModel[r][c+1] != '\0')
+                    return true;
+                return false;
+            }).count() > 0;
+        }
+        System.out.println("Checkpt 3: valid? " + valid);
+
+        return valid;
+
+    }
+
+    /**
+     * Is the letter that is at location "pair" in the GUI part of a valid word in the vertical direction?
+     * @param pair an (x,y) coordinate in the GUI denoting a location of an inserted tile
+     */
+    private boolean partOfValidVerticalWord(Pair<Integer, Integer> pair) {
+        StringBuilder sb = new StringBuilder();
+        int row = pair.getKey();
+        int col = pair.getValue();
+        sb.append(viewModel[row][col].getText().charAt(0));
+        for (int r = row - 1; r >= 0; r--)
+        {
+            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
+            {
+                sb.insert(0, viewModel[r][col].getText().charAt(0));
+            }
+            else break;
+        }
+        for (int r = row + 1; r < 15; r++)
+        {
+            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
+            {
+                sb.append(viewModel[r][col].getText().charAt(0));
+            }
+            else break;
+        }
+        // Now that we have the vertical word we've formed, let's see whether it is valid.
+        if (sb.length() == 1)
+            return true;
+        TrieNode tn = trie.getNodeForPrefix(sb.toString().toLowerCase());
+        return (tn != null && tn.isWord());
+    }
+
+    /**
+     * Is the letter that is at location "pair" in the GUI part of a valid word in the vertical direction?
+     * @param pair an (x,y) coordinate in the GUI denoting a location of an inserted tile
+     */
+    private boolean partOfValidHorizontalWord(Pair<Integer, Integer> pair) {
+        StringBuilder sb = new StringBuilder();
+        int row = pair.getKey();
+        int col = pair.getValue();
+        sb.append(viewModel[row][col].getText().charAt(0));
+        for (int c = col - 1; c >= 0; c--)
+        {
+            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
+            {
+                sb.insert(0, viewModel[row][c].getText().charAt(0));
+            }
+            else break;
+        }
+        for (int c = col + 1; c < 15; c++)
+        {
+            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
+            {
+                sb.append(viewModel[row][c].getText().charAt(0));
+            }
+            else break;
+        }
+
+        // Now that we have the vertical word we've formed, let's see whether it is valid.
+        if (sb.length() == 1)
+            return true;
+        TrieNode tn = trie.getNodeForPrefix(sb.toString().toLowerCase());
+
+        return (tn != null && tn.isWord());
     }
 
     public void makePlayerMove()
     {
-        // propagate viewModel to model
-        // increment player score
-        // remove X tiles from the rack
-        // take as many of X tiles from the bag as you can and give them to the player
-        // let CPU make its move
+        System.out.println("Valid move");
+
+        // Step 1: increment player score
+        // Determine if the play is vertical or horizontal.
+        boolean playWasHorizontal = changed_tile_coordinates.stream()
+                .filter(x -> !x.getKey().equals(changed_tile_coordinates.get(0).getKey())).count() == 0;
+
+        int score = Integer.parseInt(playerScore.getText().split(":")[1]);
+        System.out.println("Player score is currently: " + score);
+
+        if (!playWasHorizontal)
+        {
+            score += scoreVertical(changed_tile_coordinates.get(0));
+            score += changed_tile_coordinates.stream().map(x -> scoreHorizontal(x)).reduce((x,y)->x+y).get();
+        }
+        else
+        {
+            score += scoreHorizontal(changed_tile_coordinates.get(0));
+            score += changed_tile_coordinates.stream().map(x -> scoreVertical(x)).reduce((x,y)->x+y).get();
+        }
+
+        playerScore.setText("Player Score:" + score);
+
+        // Step 2: propagate viewModel to model
+        changed_tile_coordinates.forEach(pair -> {
+            int row = pair.getKey();
+            int col = pair.getValue();
+            mainModel[row][col] = viewModel[row][col].getText().charAt(0);
+        });
+
+        // Step 3: remove X tiles from the rack
+        changed_tile_coordinates.forEach(p -> {
+            int row = p.getKey();
+            int col = p.getValue();
+        });
+
+        // Step 4: take as many of X tiles from the bag as you can and give them to the player
+        changed_tile_coordinates.forEach((x) -> {
+            playerHand.remove((Character)viewModel[x.getKey()][x.getValue()].getText().charAt(0));
+            Character c = tilesRemaining.poll();
+            if (c != null)
+            {
+                playerHand.add(c);
+                addTileToUserHand(c);
+            }
+        });
+        // Step 5: clear changed_tiles list
+        changed_tile_coordinates.clear();
+
+        // TODO Step 6: let CPU make its move
+
+
+
     }
 
-    public void computeCrossCheckSets() {
-        IntStream.range(0, 15).forEach(i -> {
-            IntStream.range(0, 15).forEach(j -> {
+    /**
+     *
+     * @param pair
+     * @return score
+     */
+    private int scoreHorizontal(Pair<Integer, Integer> pair) {
+
+        // If there is no word (of 2 or more letters) formed, return 0 immediately.
+        int count = 0;
+
+        int score = 0;
+        int letterScore;
+        int dw_count = 0;
+        int tw_count = 0;
+
+        int row = pair.getKey();
+        int col = pair.getValue();
+        for (int c = col; c >= 0; c--)
+        {
+            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
+            {
+                letterScore = Score.scoreCharacter(viewModel[row][c].getText().charAt(0));
+                // if the bonus wasn't used in a previous turn, it can be used now.
+                if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
+                {
+                    switch(board_cells[row][c].getStyleClass().get(0).substring(0, 2))
+                    {
+                        case "DW":
+                            dw_count++;
+                            break;
+                        case "TW":
+                            tw_count++;
+                            break;
+                        case "DL":
+                            letterScore *= 2;
+                            break;
+                        case "TL":
+                            letterScore *= 3;
+                            break;
+                    }
+                }
+                score += letterScore;
+            }
+            else break;
+            count++;
+        }
+        for (int c = col + 1; c < 15; c++)
+        {
+            if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
+            {
+                letterScore = Score.scoreCharacter(viewModel[row][c].getText().charAt(0));
+                // if the bonus wasn't used in a previous turn, it can be used now.
+                if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
+                {
+                    switch(board_cells[row][c].getStyleClass().get(0).substring(0, 2))
+                    {
+                        case "DW":
+                            dw_count++;
+                            break;
+                        case "TW":
+                            tw_count++;
+                            break;
+                        case "DL":
+                            letterScore *= 2;
+                            break;
+                        case "TL":
+                            letterScore *= 3;
+                            break;
+                    }
+                }
+                score += letterScore;
+            }
+            else break;
+            count++;
+        }
+        if (count <= 1)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < dw_count; i++)
+            score *= 2;
+        for (int i = 0; i < tw_count; i++)
+            score *= 3;
+        System.out.println("score is " + score);
+        return score;
+    }
+
+    private int scoreVertical(Pair<Integer, Integer> pair) {
+        // If there is no word (of 2 or more letters) formed, return 0 immediately.
+        int count = 0;
+
+        int score = 0;
+        int letterScore;
+        int dw_count = 0;
+        int tw_count = 0;
+
+        int row = pair.getKey();
+        int col = pair.getValue();
+        for (int r = row; r >= 0; r--)
+        {
+            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
+            {
+                letterScore = Score.scoreCharacter(viewModel[r][col].getText().charAt(0));
+                // if the bonus wasn't used in a previous turn, it can be used now.
+                if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
+                {
+                    switch(board_cells[r][col].getStyleClass().get(0).substring(0, 2))
+                    {
+                        case "DW":
+                            dw_count++;
+                            break;
+                        case "TW":
+                            tw_count++;
+                            break;
+                        case "DL":
+                            letterScore *= 2;
+                            break;
+                        case "TL":
+                            letterScore *= 3;
+                            break;
+                    }
+                }
+                score += letterScore;
+            }
+            else break;
+            count++;
+        }
+        for (int r = row + 1; r < 15; r++)
+        {
+            if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
+            {
+                letterScore = Score.scoreCharacter(viewModel[r][col].getText().charAt(0));
+                // if the bonus wasn't used in a previous turn, it can be used now.
+                if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
+                {
+                    switch(board_cells[r][col].getStyleClass().get(0).substring(0, 2))
+                    {
+                        case "DW":
+                            dw_count++;
+                            break;
+                        case "TW":
+                            tw_count++;
+                            break;
+                        case "DL":
+                            letterScore *= 2;
+                            break;
+                        case "TL":
+                            letterScore *= 3;
+                            break;
+                    }
+                }
+                score += letterScore;
+            }
+            else break;
+            count++;
+        }
+        if (count <= 1)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < dw_count; i++)
+            score *= 2;
+        for (int i = 0; i < tw_count; i++)
+            score *= 3;
+        System.out.println("score is " + score);
+        return score;
+    }
+
+    public void computeCrossCheckSets(int startRowInclusive, int endRowExclusive, int startColInclusive, int endColExclusive) {
+        IntStream.range(startRowInclusive, endRowExclusive).forEach(i -> {
+            IntStream.range(startColInclusive, endColExclusive).forEach(j -> {
                 crossCheckSets[i][j].clear();
                 StringBuilder verticalPrefixToThisSquare = new StringBuilder();
                 for (int h = 0; h < i; h++)
                 {
-                    verticalPrefixToThisSquare.append(mainModel[h][j]);
+                    if ((int) mainModel[h][j] != 0)
+                        verticalPrefixToThisSquare.append(mainModel[h][j]);
                 }
                 TrieNode prefixNode = trie.getNodeForPrefix(verticalPrefixToThisSquare.toString());
+                verticalPrefixToThisSquare.chars().forEach(x -> System.out.println(x));
                 if (prefixNode != null)
                 {
                     StringBuilder verticalSuffixToThisSquare = new StringBuilder();
                     for (int h = i + 1; h < 15; h++)
                     {
-                        verticalSuffixToThisSquare.append(mainModel[h][j]);
+                        if((int) mainModel[h][j] != 0)
+                            verticalSuffixToThisSquare.append(mainModel[h][j]);
                     }
                     for (char c: prefixNode.getOutgoingEdges().keySet())
                     {
@@ -351,7 +736,6 @@ public class Controller implements Initializable {
             });
         });
     }
-
 
 
 }

@@ -536,8 +536,8 @@
             </HBox>
             <HBox alignment="TOP_CENTER" prefHeight="100.0" prefWidth="200.0" spacing="125.0">
                <children>
-                  <Text fx:id="playerScore" strokeType="OUTSIDE" strokeWidth="0.0" text="Player Score" />
-                  <Text fx:id="cpuScore" strokeType="OUTSIDE" strokeWidth="0.0" text="CPU Score" />
+                  <Text fx:id="playerScore" strokeType="OUTSIDE" strokeWidth="0.0" text="Player Score:0" />
+                  <Text fx:id="cpuScore" strokeType="OUTSIDE" strokeWidth="0.0" text="CPU Score:0" />
                   <Text fx:id="statusMessage" strokeType="OUTSIDE" strokeWidth="0.0">
                      <HBox.margin>
                         <Insets />

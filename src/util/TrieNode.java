@@ -42,6 +42,7 @@ public class TrieNode {
     }
 
     public TrieNode getNodeForPrefix(String s, int index) {
+//        System.out.println("Searching for " + s + " currently at index " + index);
         if (index == s.length())
         {
             return this;
