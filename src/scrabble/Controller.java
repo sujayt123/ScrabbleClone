@@ -7,7 +7,7 @@ import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 import javafx.util.Pair;
-import util.Score;
+import util.TileHelper;
 import util.Trie;
 import util.TrieNode;
 
@@ -19,55 +19,96 @@ public class Controller implements Initializable {
 
     // TODO Refactor redundant code into reusable segments and avoid having a jumbled mix of loops and streams everywhere.
 
-    /* Access to the GUI representation of the board. Useful for defining drag-and-drop events. */
+    /**
+     *  Access to the GUI representation of the board. Useful for defining drag-and-drop events.
+     */
     private StackPane[][] board_cells = new StackPane[15][15];
 
-    /* Access to the GUI GridPane.*/
+    /**
+     * Access to the GUI GridPane.
+     */
     @FXML
     private GridPane gridPane;
 
+    /**
+     * Access to the HBox containing the player hand.
+     */
     @FXML
     private HBox playerHandHBox;
 
+    /**
+     * Access to the text region containing the player score.
+     */
     @FXML
     private Text playerScore;
 
+    /**
+     * Access to the text region containing the CPU score.
+     */
     @FXML
     private Text cpuScore;
 
+    /**
+     * Access to the text region containing the status message.
+     */
     @FXML
     private Text statusMessage;
 
-    /* The data currently represented on the screen. Propagates to main model at certain points in gameplay.
+    /**
+     * The data currently represented on the screen. Propagates to main model at certain points in gameplay.
      * Bound to the text stored in each board_cell, if it exists. Any non-existing text states are created lazily.
      */
     private Text [][] viewModel = new Text[15][15];
 
-    /* The most recently accepted state of the board. State may change upon successful user or computer move. */
+    /**
+     *  The most recently accepted state of the board. State may change upon successful user or computer move.
+     *  Initialized to '\0' by default and updated with a-z character values as board changes.
+     */
     private char [][] mainModel = new char[15][15];
 
+    /**
+     * A queue that represents the bag of tiles remaining.
+     */
     private Queue<Character> tilesRemaining;
 
+    /**
+     * A list for the player and cpu racks (henceforth referenced as "hands").
+     */
     private List<Character> playerHand, cpuHand;
 
+    /**
+     * A list containing all the locations of board squares updated in the ViewModel during the player's turn.
+     */
     private List<Pair<Integer, Integer>> changed_tile_coordinates;
 
     private HashSet[][] crossCheckSets;
 
-    // Work-around for an edge case with JavaFX drag-n-drop implementation
+    /**
+     * Work-around for an edge case with JavaFX drag-n-drop implementation
+     */
     private static boolean wasDropSuccessful = false;
 
+    /**
+     * A prefix tree data structure to house the dictionary of scrabble words. See "util" for more information.
+     */
     private Trie trie;
 
-    // Flag to indicate if it's the first turn of the game or not.
+    /**
+     * Flag to invoke additional logic checks if it's the player's first turn.
+     */
     private boolean isFirstTurn = true;
 
     /**
-     * Runs initialization routines right after the view loads.
+     * Initialization code that runs at application boot-time.
+     * @param location (unused)
+     * @param resources (unused)
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        /* Read dictionary into trie. */
         trie = new Trie();
+
+        /* Create (and initialize, if needed) initial data structures housing board information. */
         changed_tile_coordinates = new ArrayList<>();
         crossCheckSets = new HashSet[15][15];
         IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
@@ -77,25 +118,24 @@ public class Controller implements Initializable {
         computeCrossCheckSets(0, 15, 0, 15);
 
         /*
-         * Initialize the bindings to the viewmodel (view's understanding of board) and the board cells housing them.
-         * Also mark the GridPane cells as valid targets for a drag n' drop motion.
+         * Initialize the bindings to the view-model (view's understanding of board) data structure
+         * and the containers (cells, more precisely, stack panes) housing it.
+         * Mark these containers as valid targets for a drag n' drop motion.
          */
-        gridPane.getChildren().forEach((child)->{
-            if (child instanceof StackPane)
-            {
-                final int row = gridPane.getRowIndex(child);
-                final int col = gridPane.getColumnIndex(child);
-                board_cells[row][col] = (StackPane) child;
-                ((StackPane) child).getChildren().forEach((item_in_stackpane) -> {
-                    if (item_in_stackpane instanceof Text) {
-                        viewModel[row][col] = (Text) item_in_stackpane;
-                    }
-                });
-                child.setOnDragOver(new EventHandler <DragEvent>() {
-                    public void handle(DragEvent event) {
-                        /* data is dragged over the target */
-                        System.out.println("onDragOver");
+        gridPane.getChildren()
+                .filtered(child -> child instanceof StackPane)
+                .forEach(child -> {
+                    final int row = gridPane.getRowIndex(child);
+                    final int col = gridPane.getColumnIndex(child);
+                    board_cells[row][col] = (StackPane) child;
 
+                    ((StackPane) child).getChildren().
+                            filtered((grandchild)-> grandchild instanceof Text)
+                            .forEach((grandchild) ->
+                                viewModel[row][col] = (Text) grandchild
+                    );
+
+                    child.setOnDragOver((event) -> {
                         /* accept it only if it is  not dragged from the same node
                          * and if it has a string data. also, ensure that
                           * the board cell can actually receive this tile */
@@ -107,10 +147,9 @@ public class Controller implements Initializable {
                         }
 
                         event.consume();
-                    }
-                });
-                child.setOnDragEntered(new EventHandler<DragEvent>() {
-                    public void handle(DragEvent event) {
+                    });
+
+                    child.setOnDragEntered((event) -> {
                         /* the drag-and-drop gesture entered the target */
                         /* show to the user that it is an actual gesture target */
                         if (event.getGestureSource() != child &&
@@ -121,27 +160,20 @@ public class Controller implements Initializable {
                         }
 
                         event.consume();
-                    }
-                });
-                child.setOnDragExited(new EventHandler <DragEvent>() {
-                    public void handle(DragEvent event) {
-                /* mouse moved away, remove the graphical cues */
+                    });
+
+                    child.setOnDragExited((event) -> {
+                        /* mouse moved away, remove the graphical cues */
                         child.setStyle("-fx-border-width: 0;");
                         event.consume();
-                    }
-                });
+                    });
 
-                //TODO What should the board do when it receives a tile? Rigorously define the procedure
-                child.setOnDragDropped(new EventHandler <DragEvent>() {
-                    public void handle(DragEvent event) {
-                        /* data dropped */
-                        System.out.println("onDragDropped");
+                    //TODO What should the board do when it receives a tile? Rigorously define the procedure
+                    child.setOnDragDropped((event) -> {
                         /* if there is a string data on dragboard, read it and use it */
                         Dragboard db = event.getDragboard();
                         boolean success = false;
                         if (db.hasString()) {
-                            // Change the text color of the pane to Black if needed.
-
                             // Creates the text element in the view model at that position if it doesn't exist.
                             if (viewModel[row][col] == null)
                             {
@@ -150,57 +182,39 @@ public class Controller implements Initializable {
                             }
                             else
                             {
+                                /*
+                                 * Change the text color of the pane to Black if needed.
+                                 * This is to ensure that special squares are distinct from played tiles.
+                                 */
+
                                 viewModel[row][col].getStyleClass().add("black-text");
                             }
                             viewModel[row][col].setText(db.getString());
-
-
                             success = true;
+                            // work-around for javafx edge case
+                            wasDropSuccessful = true;
                         }
                         /* let the source know whether the string was successfully
                          * transferred and used */
                         event.setDropCompleted(success);
-                        wasDropSuccessful = true;
                         changed_tile_coordinates.add(new Pair(row, col));
 
                         event.consume();
-                    }
                 });
-            }
         });
 
-        List<Character> tileList =
-                Arrays.asList( 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E',
-                        'E', 'E', 'A', 'A', 'A', 'A', 'A', 'A', 'A',
-                        'A', 'A', 'I', 'I', 'I', 'I', 'I', 'I', 'I',
-                        'I', 'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O',
-                        'O', 'N', 'N', 'N', 'N', 'N', 'N', 'R', 'R',
-                        'R', 'R', 'R', 'R', 'T', 'T', 'T', 'T', 'T',
-                        'T', 'L', 'L', 'L', 'L', 'S', 'S', 'S', 'S',
-                        'U', 'U', 'U', 'U', 'D', 'D', 'D', 'D', 'G',
-                        'G', 'G', 'B', 'B', 'C', 'C', 'M', 'M', 'P',
-                        'P', 'F', 'F', 'H', 'H', 'V', 'V', 'W', 'W',
-                        'Y', 'Y', 'K', 'X', 'J', 'Q', 'Z');
-        // Shuffle the tiles and arrange them into a queue.
-        Collections.shuffle(tileList);
-        tilesRemaining = new ArrayDeque<>(tileList);
-
-        // Prepare each player to receive tiles.
+        // Prepare to distribute tiles to players.
+        tilesRemaining = TileHelper.getTileBagForGame();
         playerHand = new ArrayList<>();
         cpuHand = new ArrayList<>();
 
         // Distribute the starting racks (hereafter referenced as "hands") to the computer and the player.
-        for (int i = 0; i < 7; i++)
-        {
-            playerHand.add(tilesRemaining.remove());
-            cpuHand.add(tilesRemaining.remove());
-        }
-
-        // Display the player's hand as stackpanes in the HBox in the bottom of the borderpane layout.
-        for (int i = 0; i < 7 ; i++)
-        {
+        IntStream.range(0, 7).forEach( i->{
+            playerHand.add(tilesRemaining.poll());
+            cpuHand.add(tilesRemaining.poll());
+            // Display the player's hand as stackpanes in the HBox in the bottom of the borderpane layout.
             addTileToUserHand(playerHand.get(i));
-        }
+        });
     }
 
     /**
@@ -245,67 +259,25 @@ public class Controller implements Initializable {
         playerHandHBox.getChildren().add(s);
 
         // Mark the user's tiles as valid sources for a drag n' drop motion.
-        s.setOnDragDetected(new EventHandler<MouseEvent>() {
-            public void handle(MouseEvent event) {
-                            /* drag was detected, start drag-and-drop gesture*/
-                System.out.println("onDragDetected");
+        s.setOnDragDetected((event) -> {
+            /* drag was detected, start drag-and-drop gesture*/
+            Dragboard db = s.startDragAndDrop(TransferMode.MOVE);
 
-                            /* allow any transfer mode */
-                Dragboard db = s.startDragAndDrop(TransferMode.MOVE);
+            /* put a string on dragboard */
+            ClipboardContent content = new ClipboardContent();
+            content.putString("" + letter);
+            db.setContent(content);
 
-                            /* put a string on dragboard */
-                ClipboardContent content = new ClipboardContent();
-                content.putString("" + letter);
-                db.setContent(content);
-
-                event.consume();
-            }
+            event.consume();
         });
 
-        s.setOnDragDone(new EventHandler <DragEvent>() {
-            public void handle(DragEvent event) {
-                /* the drag-and-drop gesture ended */
-                System.out.println("onDragDone");
-                /* if the data was successfully moved, clear it */
-                if (event.getTransferMode() == TransferMode.MOVE && wasDropSuccessful) {
-                    playerHandHBox.getChildren().remove(s);
-                    wasDropSuccessful = false;
-                }
-                event.consume();
+        s.setOnDragDone((event) -> {
+            /* if the data was successfully moved, clear it */
+            if (event.getTransferMode() == TransferMode.MOVE && wasDropSuccessful) {
+                playerHandHBox.getChildren().remove(s);
+                wasDropSuccessful = false;
             }
-        });
-    }
-
-    /**
-     * Optional method to ensure the hand is consistent with what's displayed on the screen.
-     * JavaFX appears to have some edge cases with drag-n-drop that may require this method
-     * or other solutions (like flags) to address.
-     */
-    public void ensureHandConsistentWithGUI()
-    {
-        Map<Character, Integer> lettersNotInHand = new HashMap<>();
-        for (char c: playerHand)
-        {
-            if (!lettersNotInHand.containsKey(c) && c >= 'A' && c <= 'Z')
-            {
-                lettersNotInHand.put(c, 0);
-            }
-            lettersNotInHand.put(c, lettersNotInHand.get(c) + 1);
-        }
-
-        playerHandHBox.getChildren().forEach((stackpane) -> {
-            ((StackPane)stackpane).getChildren().forEach((text) -> {
-                char c = ((Text)text).getText().charAt(0);
-                lettersNotInHand.put(c, lettersNotInHand.get(c) - 1);
-            });
-        });
-
-        System.out.println(lettersNotInHand.toString());
-
-        lettersNotInHand.forEach((k, v) -> {
-            for (int i = 0; i < v; i++) {
-                addTileToUserHand(k);
-            }
+            event.consume();
         });
     }
 
@@ -327,7 +299,6 @@ public class Controller implements Initializable {
         }
     }
 
-    //TODO Fix in the morning. Take a look at the streams and see whether the filtering and checks are done appropriately.
     boolean isValidMove()
     {
         boolean valid = true;
@@ -346,8 +317,8 @@ public class Controller implements Initializable {
             valid = valid && partOfValidVerticalWord(changed_tile_coordinates.get(0));
 
             // Ensure that the word is indeed connected vertically (and is not just two disjoint words in the same col)
-            int min_row_ind = changed_tile_coordinates.stream().map((x)->x.getKey()).reduce((x, y) -> x < y ? x : y).get();
-            int max_row_ind = changed_tile_coordinates.stream().map((x)->x.getKey()).reduce((x, y) -> x > y ? x : y).get();
+            int min_row_ind = changed_tile_coordinates.stream().map(Pair::getKey).reduce((x, y) -> x < y ? x : y).get();
+            int max_row_ind = changed_tile_coordinates.stream().map(Pair::getKey).reduce((x, y) -> x > y ? x : y).get();
 
             valid = valid && IntStream.rangeClosed(min_row_ind, max_row_ind).mapToObj(
                     i -> viewModel[i][changed_tile_coordinates.get(0).getValue()] != null
@@ -355,13 +326,10 @@ public class Controller implements Initializable {
                     .reduce((x, y) -> x && y).get();
 
             // Ensure that each letter contributes to a horizontal word correctly.
-            for (Pair pair : changed_tile_coordinates)
-            {
-                valid = valid && partOfValidHorizontalWord(pair);
-            }
+            valid = valid && changed_tile_coordinates.stream().
+                    map(this::partOfValidHorizontalWord).reduce((x, y) -> x && y).get();
+
         }
-
-
         else
         {
             valid = valid && partOfValidHorizontalWord(changed_tile_coordinates.get(0));
@@ -375,12 +343,10 @@ public class Controller implements Initializable {
                     .reduce((x, y) -> x && y).get();
 
             // Ensure that each letter contributes to a vertical word correctly.
-
-            for (Pair pair : changed_tile_coordinates)
-            {
-                valid = valid && partOfValidVerticalWord(pair);
-            }
+            valid = valid && changed_tile_coordinates.stream().
+                    map(this::partOfValidVerticalWord).reduce((x, y) -> x && y).get();
         }
+
         System.out.println("Checkpt 2: valid? " + valid);
 
         if (isFirstTurn)
@@ -502,7 +468,7 @@ public class Controller implements Initializable {
             score += changed_tile_coordinates.stream().map(x -> scoreVertical(x)).reduce((x,y)->x+y).get();
         }
 
-        playerScore.setText("Player Score:" + score);
+        playerScore.setText("Player TileHelper:" + score);
 
         // Step 2: propagate viewModel to model
         changed_tile_coordinates.forEach(pair -> {
@@ -557,7 +523,7 @@ public class Controller implements Initializable {
         {
             if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
             {
-                letterScore = Score.scoreCharacter(viewModel[row][c].getText().charAt(0));
+                letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
                 // if the bonus wasn't used in a previous turn, it can be used now.
                 if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
                 {
@@ -586,7 +552,7 @@ public class Controller implements Initializable {
         {
             if (viewModel[row][c] != null && viewModel[row][c].getText().length() == 1)
             {
-                letterScore = Score.scoreCharacter(viewModel[row][c].getText().charAt(0));
+                letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
                 // if the bonus wasn't used in a previous turn, it can be used now.
                 if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0')
                 {
@@ -639,7 +605,7 @@ public class Controller implements Initializable {
         {
             if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
             {
-                letterScore = Score.scoreCharacter(viewModel[r][col].getText().charAt(0));
+                letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
                 // if the bonus wasn't used in a previous turn, it can be used now.
                 if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
                 {
@@ -668,7 +634,7 @@ public class Controller implements Initializable {
         {
             if (viewModel[r][col] != null && viewModel[r][col].getText().length() == 1)
             {
-                letterScore = Score.scoreCharacter(viewModel[r][col].getText().charAt(0));
+                letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
                 // if the bonus wasn't used in a previous turn, it can be used now.
                 if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0')
                 {
