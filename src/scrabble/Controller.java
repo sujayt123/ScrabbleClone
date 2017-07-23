@@ -87,7 +87,7 @@ public class Controller implements Initializable {
     /**
      * Work-around for an edge case with JavaFX drag-n-drop implementation
      */
-    private static boolean wasDropSuccessful = false;
+    private boolean wasDropSuccessful = false;
 
     /**
      * A prefix tree data structure to house the dictionary of scrabble words. See "util" for more information.
@@ -121,8 +121,8 @@ public class Controller implements Initializable {
         IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
             verticalCrossCheckSetsForModel[i][j] = new HashSet<>();
             horizontalCrossCheckSetsForModelTranspose[j][i] = new HashSet<>();
-            verticalCrossCheckSetsForModel[i][j].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
-            horizontalCrossCheckSetsForModelTranspose[j][i].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+            verticalCrossCheckSetsForModel[i][j].addAll(IntStream.rangeClosed((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+            horizontalCrossCheckSetsForModelTranspose[j][i].addAll(IntStream.rangeClosed((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
             mainModel[i][j] = ' ';
         }));
 
@@ -317,7 +317,12 @@ public class Controller implements Initializable {
      */
     private boolean isValidMove(char[][] model, List<Pair<Integer, Integer>> changed_tile_coordinates)
     {
-        boolean valid = changed_tile_coordinates.size() > 0;
+        if (changed_tile_coordinates.size() == 0)
+        {
+            return false;
+        }
+
+        boolean valid = true;
 
         // Determine if the play is vertical or horizontal.
         boolean playWasHorizontal = changed_tile_coordinates.stream()
@@ -328,7 +333,7 @@ public class Controller implements Initializable {
 
         valid = valid && (playWasVertical || playWasHorizontal);
 
-        System.out.println("Checkpt 1: valid? " + valid);
+//        System.out.println("Checkpt 1: valid? " + valid);
         if (playWasVertical){
             int col = changed_tile_coordinates.get(0).getValue();
             valid = valid && validVerticalPlay(model, changed_tile_coordinates);
@@ -358,7 +363,7 @@ public class Controller implements Initializable {
                     .reduce((x, y) -> x && y).get();
         }
 
-        System.out.println("Checkpt 2: valid? " + valid);
+//        System.out.println("Checkpt 2: valid? " + valid);
 
         if (isFirstTurn)
         {
@@ -379,7 +384,7 @@ public class Controller implements Initializable {
                         || (c < 14 && mainModel[r][c+1] != ' ');
             }).count() > 0;
         }
-        System.out.println("Checkpt 3: valid? " + valid);
+//        System.out.println("Checkpt 3: valid? " + valid);
 
         return valid;
 
@@ -426,7 +431,7 @@ public class Controller implements Initializable {
      */
     private static Pair<String, Integer> buildHorizontalWordForCoordinate(char[][] model, Pair<Integer, Integer> pair)
     {
-        System.out.println(pair.toString());
+//        System.out.println(pair.toString());
         StringBuilder sb = new StringBuilder();
         int row = pair.getKey();
         int col = pair.getValue();
@@ -462,9 +467,9 @@ public class Controller implements Initializable {
         TrieNode tn = trie.getNodeForPrefix(verticalWord);
 
 //        System.out.println("valid vertical word formed for " + verticalWord + " :" + (verticalWord.length() == 1 || (tn != null && tn.isWord())));
-        changed_tile_coordinates.stream().forEach((pair)->{
-            System.out.println(pair.toString() + " has horizontal cross check sets of " + horizontalCrossCheckSetsForModelTranspose[pair.getValue()][pair.getKey()]);
-        });
+//        changed_tile_coordinates.stream().forEach((pair)->{
+//            System.out.println(pair.toString() + " has horizontal cross check sets of " + horizontalCrossCheckSetsForModelTranspose[pair.getValue()][pair.getKey()]);
+//        });
 
         /*
          * Second, check if the horizontal words formed in a parallel play follow the cross sets.
@@ -494,9 +499,9 @@ public class Controller implements Initializable {
          * Second, check if the vertical words formed in a parallel play follow the cross sets.
          */
 //        System.out.println("valid horizontal word formed for " + horizontalWord + " :" + (horizontalWord.length() == 1 || (tn != null && tn.isWord())));
-        changed_tile_coordinates.stream().forEach((pair)->{
-            System.out.println(pair.toString() + " has vertical cross check sets of " + verticalCrossCheckSetsForModel[pair.getKey()][pair.getValue()]);
-        });
+//        changed_tile_coordinates.stream().forEach((pair)->{
+//            System.out.println(pair.toString() + " has vertical cross check sets of " + verticalCrossCheckSetsForModel[pair.getKey()][pair.getValue()]);
+//        });
 
         return (horizontalWord.length() == 1 || (tn != null && tn.isWord()))
                 && (changed_tile_coordinates.stream().
@@ -512,7 +517,7 @@ public class Controller implements Initializable {
      */
     private void makePlayerMove()
     {
-        System.out.println("Valid move");
+//        System.out.println("Valid move");
 
         // Step 1: increment player score
         // Determine if the play is vertical or horizontal.
@@ -567,8 +572,8 @@ public class Controller implements Initializable {
         // Step 6: clear changed_tiles list
         changed_tile_coordinates.clear();
 
-        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Vertical set for " + x.toString() + " : " + verticalCrossCheckSetsForModel[x.getKey()][x.getValue()]));
-        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
+//        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Vertical set for " + x.toString() + " : " + verticalCrossCheckSetsForModel[x.getKey()][x.getValue()]));
+//        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
 
         System.out.println("The CPU has in his hand : " + cpuHand.toString());
         // TODO Step 7: let CPU make its move
@@ -618,7 +623,7 @@ public class Controller implements Initializable {
 
                     if (prefixNode == trie.root && verticalSuffixToThisSquare.toString().equals(""))
                     {
-                        crossCheckSets[i][j].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+                        crossCheckSets[i][j].addAll(IntStream.rangeClosed((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
 
                     }
                 }
@@ -637,9 +642,10 @@ public class Controller implements Initializable {
         System.out.println(anchorSquares.toString());
         // TODO: I think all the logic in CPU move up until this point is valid.
         bestCPUPlay = new Pair<>(null, Integer.MIN_VALUE);
-        anchorSquares.forEach(square -> computeBestHorizontalPlayAtAnchor(BoardHelper.getCopyOfModel(mainModel), anchorSquares, square, verticalCrossCheckSetsForModel));
-//        anchorSquares.stream().map(x -> new Pair<>(x.getValue(), x.getKey()))
-//                .forEach(square -> computeBestHorizontalPlayAtAnchor(BoardHelper.getTransposeOfModel(mainModel), square, horizontalCrossCheckSetsForModelTranspose));
+        anchorSquares.forEach(square -> computeBestHorizontalPlayAtAnchor(BoardHelper.getCopyOfModel(mainModel), anchorSquares, square, verticalCrossCheckSetsForModel, false));
+        Set<Pair<Integer, Integer>> transposedAnchorSquares = anchorSquares.stream().map(x -> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toSet());
+
+        transposedAnchorSquares.forEach(square -> computeBestHorizontalPlayAtAnchor(BoardHelper.getTransposeOfModel(mainModel), transposedAnchorSquares, square, horizontalCrossCheckSetsForModelTranspose, true));
         ArrayList<Pair<Integer, Integer>> newSquaresPlacedLocations = new ArrayList<>();
         for (int i = 0; i < 15; i++)
         {
@@ -691,7 +697,7 @@ public class Controller implements Initializable {
      * @param verticalCrossCheckSets vertical cross checks
      * @return (horizontal string, leftmost position, score)
      */
-    private void computeBestHorizontalPlayAtAnchor(char[][] model, Set<Pair<Integer, Integer>> anchors, Pair<Integer, Integer> square, HashSet<Character>[][] verticalCrossCheckSets) {
+    private void computeBestHorizontalPlayAtAnchor(char[][] model, Set<Pair<Integer, Integer>> anchors, Pair<Integer, Integer> square, HashSet<Character>[][] verticalCrossCheckSets, boolean transposed) {
         int col = square.getValue();
         OptionalInt left_exclusive = IntStream.iterate(col - 1, i -> i - 1)
                 .limit(col)
@@ -702,28 +708,28 @@ public class Controller implements Initializable {
         {
             if (col == 0)
             {
-                ExtendRight(model, square, "", cpuHand, trie.root, verticalCrossCheckSets);
+                ExtendRight(model, square, "", cpuHand, trie.root, verticalCrossCheckSets, transposed);
             }
             else if (model[square.getKey()][col - 1] != ' ')
             {
                 String prefix = buildHorizontalWordForCoordinate(model, new Pair<>(square.getKey(), col - 1)).getKey();
-                ExtendRight(model, square, prefix, cpuHand, trie.getNodeForPrefix(prefix), verticalCrossCheckSets);
+                ExtendRight(model, square, prefix, cpuHand, trie.getNodeForPrefix(prefix), verticalCrossCheckSets, transposed);
             }
         }
 
-        LeftPart(model, square,"", cpuHand, trie.root, verticalCrossCheckSets, k, k);
+        LeftPart(model, square,"", cpuHand, trie.root, verticalCrossCheckSets, k, k, transposed);
     }
 
-    private void LeftPart(char[][] board, Pair<Integer,Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets, int limit, int maxLimit)
+    private void LeftPart(char[][] board, Pair<Integer,Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets, int limit, int maxLimit, boolean transposed)
     {
-        for (int i = 0 ; i < 15 ; i++) {
-            for (int j = 0; j< 15; j++)
-            {
-                System.out.print(board[i][j]);
-            }
-            System.out.println();
-        }
-        ExtendRight(board, square, partialWord, tilesRemainingInRack, N, crossCheckSets);
+//        for (int i = 0 ; i < 15 ; i++) {
+//            for (int j = 0; j< 15; j++)
+//            {
+//                System.out.print(board[i][j]);
+//            }
+//            System.out.println();
+//        }
+        ExtendRight(board, square, partialWord, tilesRemainingInRack, N, crossCheckSets, transposed);
         if (limit > 0)
         {
             N.getOutgoingEdges().keySet().forEach(c -> {
@@ -735,7 +741,7 @@ public class Controller implements Initializable {
                     }
                     board[square.getKey()][square.getValue() - 1] = c;
                     tilesRemainingInRack.remove((Character)c);
-                    LeftPart(board, square, partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets, limit - 1, maxLimit);
+                    LeftPart(board, square, partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets, limit - 1, maxLimit, transposed);
                     tilesRemainingInRack.add(c);
                     for (int i = square.getValue() - 1; i > square.getValue() - maxLimit; i--)
                     {
@@ -747,29 +753,29 @@ public class Controller implements Initializable {
         }
     }
 
-    private void ExtendRight(char[][] board, Pair<Integer, Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets)
+    private void ExtendRight(char[][] board, Pair<Integer, Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets, boolean transposed)
     {
-        for (int i = 0 ; i < 15 ; i++) {
-            for (int j = 0; j< 15; j++)
-            {
-                System.out.print(board[i][j]);
-            }
-            System.out.println();
-        }
+//        for (int i = 0 ; i < 15 ; i++) {
+//            for (int j = 0; j< 15; j++)
+//            {
+//                System.out.print(board[i][j]);
+//            }
+//            System.out.println();
+//        }
         if (square.getValue() >= 15)
             return;
         if (board[square.getKey()][square.getValue()] == ' ')
         {
             if (N.isWord())
             {
-                LegalMove(board, partialWord);
+                LegalMove(board, partialWord, transposed);
             }
             N.getOutgoingEdges().keySet().forEach(c -> {
                 if (tilesRemainingInRack.contains(c) && crossCheckSets[square.getKey()][square.getValue()].contains(c))
                 {
                     tilesRemainingInRack.remove((Character)c);
                     board[square.getKey()][square.getValue()] = c;
-                    ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets);
+                    ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets, transposed);
                     board[square.getKey()][square.getValue()] = ' ';
                     tilesRemainingInRack.add(c);
                 }
@@ -779,22 +785,42 @@ public class Controller implements Initializable {
         {
             if (N.getOutgoingEdges().containsKey(board[square.getKey()][square.getValue()]))
             {
-                ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + board[square.getKey()][square.getValue()], tilesRemainingInRack, N.getOutgoingEdges().get(board[square.getKey()][square.getValue()]), crossCheckSets);
+                ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + board[square.getKey()][square.getValue()], tilesRemainingInRack, N.getOutgoingEdges().get(board[square.getKey()][square.getValue()]), crossCheckSets, transposed);
             }
         }
     }
 
-    private void LegalMove(char[][] board, String partialWord) {
+    private void LegalMove(char[][] b, String partialWord, boolean transposed) {
+        final char[][] board;
+        if (transposed)
+        {
+            char[][]new_board = new char[15][15];
+            for (int i = 0; i < 15; i++)
+                for(int j = 0; j < 15; j++)
+                    new_board[i][j] = b[j][i];
+            board = new_board;
+        }
+        else
+        {
+            board = b;
+        }
         // Get all pairs in which board differs from mainModel.
         List<Pair<Integer, Integer>> changed_coords_by_cpu = BoardHelper.getCoordinatesListForBoard().stream().filter(x -> {
             int r = x.getKey();
             int c = x.getValue();
             return board[r][c] != mainModel[r][c];
         }).collect(Collectors.toList());
+
         if (changed_coords_by_cpu.size() == 0 || !isValidMove(board, changed_coords_by_cpu))
             return;
         // Since we know the move was horizontal, let's score it.
-        int score = changed_coords_by_cpu.stream().reduce(scoreHorizontal(board, changed_coords_by_cpu.get(0)),
+        int score = (transposed) ?
+                changed_coords_by_cpu.stream().reduce(scoreVertical(board, changed_coords_by_cpu.get(0)),
+                        (acc, x) -> {
+                            return acc + scoreHorizontal(board, x);
+                        }, (acc1, acc2) -> acc1 + acc2)
+
+        : changed_coords_by_cpu.stream().reduce(scoreHorizontal(board, changed_coords_by_cpu.get(0)),
                 (acc, x) -> {
                     return acc + scoreVertical(board, x);
                 }, (acc1, acc2) -> acc1 + acc2);
