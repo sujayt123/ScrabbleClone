@@ -1,5 +1,6 @@
 package util;
 
+import javafx.scene.text.Text;
 import javafx.util.Pair;
 
 import java.util.ArrayList;
@@ -66,6 +67,19 @@ public class BoardHelper {
         char[][] newArray = new char[15][15];
         matrixOfCoords.forEach((pair)->{
             newArray[pair.getKey()][pair.getValue()] = model[pair.getKey()][pair.getValue()];
+        });
+        return newArray;
+    }
+
+    public static char[][] getViewModelAs2DArray(Text[][] viewModel)
+    {
+        char[][] newArray = new char[15][15];
+        getCoordinatesListForBoard().forEach((pair) -> {
+            newArray[pair.getKey()][pair.getValue()] = ' ';
+            if (viewModel[pair.getKey()][pair.getValue()] != null && viewModel[pair.getKey()][pair.getValue()].getText().length() == 1)
+            {
+                newArray[pair.getKey()][pair.getValue()] = viewModel[pair.getKey()][pair.getValue()].getText().charAt(0);
+            }
         });
         return newArray;
     }

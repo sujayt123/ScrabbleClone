@@ -41,6 +41,11 @@
     -fx-fill: lightgreen;
 }
 
+.bold-text {
+    -fx-font-family: Arial Black;
+    -fx-fill:red;
+}
+
 #playerScore {
     -fx-fill: green;
 }
@@ -48,4 +53,5 @@
 #cpuScore {
     -fx-fill: red;
 }
+
 

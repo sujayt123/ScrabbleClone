@@ -36,58 +36,58 @@ public class TileHelper {
      */
     public static int scoreCharacter(char c) {
         // A simple switch statement will suffice, since there are only 27 possible values to consider.
-        switch (Character.toLowerCase(c)) {
-            case 'a':
+        switch (c) {
+            case 'A':
                 return 1;
-            case 'b':
+            case 'B':
                 return 3;
-            case 'c':
+            case 'C':
                 return 3;
-            case 'd':
+            case 'D':
                 return 2;
-            case 'e':
+            case 'E':
                 return 1;
-            case 'f':
+            case 'F':
                 return 4;
-            case 'g':
+            case 'G':
                 return 2;
-            case 'h':
+            case 'H':
                 return 4;
-            case 'i':
+            case 'I':
                 return 1;
-            case 'j':
+            case 'J':
                 return 8;
-            case 'k':
+            case 'K':
                 return 5;
-            case 'l':
+            case 'L':
                 return 1;
-            case 'm':
+            case 'M':
                 return 3;
-            case 'n':
+            case 'N':
                 return 1;
-            case 'o':
+            case 'O':
                 return 1;
-            case 'p':
+            case 'P':
                 return 3;
-            case 'q':
+            case 'Q':
                 return 10;
-            case 'r':
+            case 'R':
                 return 1;
-            case 's':
+            case 'S':
                 return 1;
-            case 't':
+            case 'T':
                 return 1;
-            case 'u':
+            case 'U':
                 return 1;
-            case 'v':
+            case 'V':
                 return 4;
-            case 'w':
+            case 'W':
                 return 4;
-            case 'x':
+            case 'X':
                 return 8;
-            case 'y':
+            case 'Y':
                 return 4;
-            case 'z':
+            case 'Z':
                 return 10;
         }
         return 0;

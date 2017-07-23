@@ -63,7 +63,7 @@ public class Controller implements Initializable {
 
     /**
      *  The most recently accepted state of the board. State may change upon successful user or computer move.
-     *  Initialized to '\0' by default and updated with a-z character values as board changes.
+     *  Updated with a-z character values as board changes.
      */
     private char [][] mainModel = new char[15][15];
 
@@ -92,12 +92,12 @@ public class Controller implements Initializable {
     /**
      * A prefix tree data structure to house the dictionary of scrabble words. See "util" for more information.
      */
-    private Trie trie;
+    private static Trie trie;
 
     /**
      * Flag to invoke additional logic checks if it's the player's first turn.
      */
-    private boolean isFirstTurn = true;
+    private static boolean isFirstTurn = true;
 
     private Pair<Character[][], Integer> bestCPUPlay = new Pair<>(null, Integer.MAX_VALUE);
 
@@ -109,7 +109,10 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         /* Read dictionary into trie. */
-        trie = new Trie();
+        if (trie == null)
+        {
+            trie = new Trie();
+        }
 
         /* Create (and initialize, if needed) initial data structures housing board information. */
         changed_tile_coordinates = new ArrayList<>();
@@ -118,8 +121,9 @@ public class Controller implements Initializable {
         IntStream.range(0, 15).forEach(i -> IntStream.range(0, 15).forEach(j -> {
             verticalCrossCheckSetsForModel[i][j] = new HashSet<>();
             horizontalCrossCheckSetsForModelTranspose[j][i] = new HashSet<>();
-            verticalCrossCheckSetsForModel[i][j].addAll(IntStream.range((int)'a', (int)'z').mapToObj(x-> (char)x).collect(Collectors.toList()));
-            horizontalCrossCheckSetsForModelTranspose[j][i].addAll(IntStream.range((int)'a', (int)'z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+            verticalCrossCheckSetsForModel[i][j].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+            horizontalCrossCheckSetsForModelTranspose[j][i].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+            mainModel[i][j] = ' ';
         }));
 
 
@@ -147,8 +151,8 @@ public class Controller implements Initializable {
                           * the board cell can actually receive this tile */
                         if (event.getGestureSource() != child &&
                                 event.getDragboard().hasString() &&
-                                (viewModel[row][col] == null ||
-                                 viewModel[row][col].getText().length() != 1)) {
+                                (viewModel[row][col] == null || viewModel[row][col].getText().length() == 2 ||
+                                 viewModel[row][col].getText().charAt(0) == ' ')) {
                             event.acceptTransferModes(TransferMode.MOVE);
                         }
 
@@ -160,8 +164,8 @@ public class Controller implements Initializable {
                         /* show to the user that it is an actual gesture target */
                         if (event.getGestureSource() != child &&
                                 event.getDragboard().hasString() &&
-                                (viewModel[row][col] == null ||
-                                        viewModel[row][col].getText().length() != 1)) {
+                                (viewModel[row][col] == null || viewModel[row][col].getText().length() == 2 ||
+                                        viewModel[row][col].getText().charAt(0) == ' ')) {
                             child.setStyle("-fx-border-color: darkblue; -fx-border-width: 3;");
                         }
 
@@ -242,7 +246,7 @@ public class Controller implements Initializable {
             }
             else
             {
-                viewModel[i][j].setText("");
+                viewModel[i][j].setText(" ");
             }
         });
         changed_tile_coordinates.clear();
@@ -291,7 +295,7 @@ public class Controller implements Initializable {
      */
     public void attemptPlayerMove()
     {
-        if (isValidMove())
+        if (isValidMove(BoardHelper.getViewModelAs2DArray(viewModel), changed_tile_coordinates))
         {
             statusMessage.setText("Your move has been registered.");
             statusMessage.getStyleClass().clear();
@@ -311,7 +315,7 @@ public class Controller implements Initializable {
      * Checks if the viewModel is consistent with a valid move.
      * @return if the player move was valid
      */
-    private boolean isValidMove()
+    private boolean isValidMove(char[][] model, List<Pair<Integer, Integer>> changed_tile_coordinates)
     {
         boolean valid = changed_tile_coordinates.size() > 0;
 
@@ -326,7 +330,8 @@ public class Controller implements Initializable {
 
         System.out.println("Checkpt 1: valid? " + valid);
         if (playWasVertical){
-            valid = valid && validVerticalPlay(changed_tile_coordinates.get(0));
+            int col = changed_tile_coordinates.get(0).getValue();
+            valid = valid && validVerticalPlay(model, changed_tile_coordinates);
 
             // Ensure that the word is indeed connected vertically (and is not just two disjoint words in the same col)
             int min_row_ind = changed_tile_coordinates.stream().map(Pair::getKey).reduce((x, y) -> x < y ? x : y).get();
@@ -334,23 +339,22 @@ public class Controller implements Initializable {
 
             valid = valid && IntStream.rangeClosed(min_row_ind, max_row_ind)
                     .mapToObj(
-                        i -> viewModel[i][changed_tile_coordinates.get(0).getValue()] != null
-                            && viewModel[i][changed_tile_coordinates.get(0).getValue()].getText().length() == 1)
+                        i -> model[i][col] != ' ')
                     .reduce((x, y) -> x && y).get();
 
 
         }
         else
         {
-            valid = valid && validHorizontalPlay(changed_tile_coordinates.get(0));
+            valid = valid && validHorizontalPlay(model, changed_tile_coordinates);
+            int row = changed_tile_coordinates.get(0).getKey();
 
             // Ensure that the word is indeed connected horizontally (and is not just two disjoint words in the same row)
             int min_col_ind = changed_tile_coordinates.stream().map(Pair::getValue).reduce((x, y) -> x < y ? x : y).get();
             int max_col_ind = changed_tile_coordinates.stream().map(Pair::getValue).reduce((x, y) -> x > y ? x : y).get();
             valid = valid && IntStream.rangeClosed(min_col_ind, max_col_ind)
                     .mapToObj(
-                        j -> viewModel[changed_tile_coordinates.get(0).getKey()][j] != null
-                            && viewModel[changed_tile_coordinates.get(0).getKey()][j].getText().length() == 1)
+                        j -> model[row][j] != ' ')
                     .reduce((x, y) -> x && y).get();
         }
 
@@ -369,46 +373,16 @@ public class Controller implements Initializable {
             valid = valid && changed_tile_coordinates.stream().filter(x -> {
                 int r = x.getKey();
                 int c = x.getValue();
-                return (r > 0 && mainModel[r-1][c] != '\0')
-                        || (r < 14 && mainModel[r+1][c] != '\0')
-                        || (c > 0 && mainModel[r][c-1] != '\0')
-                        || (c < 14 && mainModel[r][c+1] != '\0');
+                return (r > 0 && mainModel[r-1][c] != ' ')
+                        || (r < 14 && mainModel[r+1][c] != ' ')
+                        || (c > 0 && mainModel[r][c-1] != ' ')
+                        || (c < 14 && mainModel[r][c+1] != ' ');
             }).count() > 0;
         }
         System.out.println("Checkpt 3: valid? " + valid);
 
         return valid;
 
-    }
-
-    /**
-     * Builds the vertical word in which the letter at the provided coordinate in the ViewModel participates.
-     * If the provided coordinate is empty, returns the prefix to the word that would exist if a tile were placed there.
-     * @param pair
-     * @return the word itself, as well as the starting index of the word
-     */
-    private Pair<String, Integer> buildVerticalWordForCoordinate(Pair<Integer, Integer> pair)
-    {
-        StringBuilder sb = new StringBuilder();
-        int row = pair.getKey();
-        int col = pair.getValue();
-
-        OptionalInt top_exclusive = IntStream.iterate(row - 1, i -> i - 1)
-                .limit(row)
-                .filter(r -> !(viewModel[r][col] != null && viewModel[r][col].getText().length() == 1))
-                .findFirst();
-        OptionalInt bot_exclusive = IntStream.range(row, 15)
-                .filter(r -> !(viewModel[r][col] != null && viewModel[r][col].getText().length() == 1))
-                .findFirst();
-        int top_exc = top_exclusive.isPresent() ? top_exclusive.getAsInt(): -1;
-        int bot_exc = bot_exclusive.isPresent() ? bot_exclusive.getAsInt(): 15;
-        Boolean endOfWordSeen = false;
-        IntStream.range(top_exc + 1, bot_exc)
-                .forEach(r ->
-                        sb.append(viewModel[r][col].getText().charAt(0))
-                );
-
-        return new Pair<>(sb.toString(), top_exc + 1);
     }
 
     /**
@@ -427,17 +401,16 @@ public class Controller implements Initializable {
 
         OptionalInt top_exclusive = IntStream.iterate(row - 1, i -> i - 1)
                 .limit(row)
-                .filter(r -> model[r][col] == '\0')
+                .filter(r -> model[r][col] == ' ')
                 .findFirst();
         OptionalInt bot_exclusive = IntStream.range(row, 15)
-                .filter(r -> model[r][col] == '\0')
+                .filter(r -> model[r][col] == ' ')
                 .findFirst();
         int top_exc = top_exclusive.isPresent() ? top_exclusive.getAsInt(): -1;
         int bot_exc = bot_exclusive.isPresent() ? bot_exclusive.getAsInt(): 15;
-        Boolean endOfWordSeen = false;
         IntStream.range(top_exc + 1, bot_exc)
                 .forEach(r ->
-                        sb.append(Character.toLowerCase(model[r][col]))
+                        sb.append(model[r][col])
                 );
 
         return new Pair<>(sb.length() > 0 ? sb.toString() : "", top_exc + 1);
@@ -453,71 +426,40 @@ public class Controller implements Initializable {
      */
     private static Pair<String, Integer> buildHorizontalWordForCoordinate(char[][] model, Pair<Integer, Integer> pair)
     {
+        System.out.println(pair.toString());
         StringBuilder sb = new StringBuilder();
         int row = pair.getKey();
         int col = pair.getValue();
 
         OptionalInt top_exclusive = IntStream.iterate(col - 1, c -> c - 1)
                 .limit(col)
-                .filter(c -> model[row][c] == '\0')
+                .filter(c -> model[row][c] == ' ')
                 .findFirst();
         OptionalInt bot_exclusive = IntStream.range(col, 15)
-                .filter(c -> model[row][c] == '\0')
+                .filter(c -> model[row][c] == ' ')
                 .findFirst();
         int left_exc = top_exclusive.isPresent() ? top_exclusive.getAsInt(): -1;
         int right_exc = bot_exclusive.isPresent() ? bot_exclusive.getAsInt(): 15;
-        Boolean endOfWordSeen = false;
         IntStream.range(left_exc + 1, right_exc)
                 .forEach(c ->
-                        sb.append(Character.toLowerCase(model[row][c]))
+                        sb.append(model[row][c])
                 );
 
         return new Pair<>(sb.length() > 0 ? sb.toString() : "", left_exc + 1);
     }
 
     /**
-     * Builds the horizontal word in which the letter at the provided coordinate in the ViewModel participates.
-     * If the provided coordinate is empty, returns the prefix to the word that would exist if a tile were placed there.
-     *
-     * @param pair
-     * @return the word itself, as well as the starting index of the word
-     */
-    private Pair<String, Integer> buildHorizontalWordForCoordinate(Pair<Integer, Integer> pair)
-    {
-        StringBuilder sb = new StringBuilder();
-        int row = pair.getKey();
-        int col = pair.getValue();
-
-        OptionalInt left_exclusive = IntStream.iterate(col - 1, i -> i - 1)
-                .limit(col)
-                .filter(c -> !(viewModel[row][c] != null && viewModel[row][c].getText().length() == 1))
-                .findFirst();
-        OptionalInt right_exclusive = IntStream.range(col, 15)
-                .filter(c -> !(viewModel[row][c] != null && viewModel[row][c].getText().length() == 1))
-                .findFirst();
-        int left_exc = left_exclusive.isPresent() ? left_exclusive.getAsInt(): -1;
-        int right_exc = right_exclusive.isPresent() ? right_exclusive.getAsInt(): 15;
-        Boolean endOfWordSeen = false;
-        IntStream.range(left_exc + 1, right_exc)
-                .forEach(c ->
-                        sb.append(viewModel[row][c].getText().charAt(0))
-                );
-
-        return new Pair<>(sb.toString(), left_exc + 1);
-    }
-
-    /**
      * Is the letter that is at location "pair" in the GUI part of a valid word in the vertical direction?
      * @param p an (x,y) coordinate in the GUI denoting a location of an inserted tile
      */
-    private boolean validVerticalPlay(Pair<Integer, Integer> p) {
+    private boolean validVerticalPlay(char[][] board, List<Pair<Integer, Integer>> changed_tile_coordinates) {
         /*
          * First, check if the vertical part constitutes a word.
          */
-        String verticalWord = buildVerticalWordForCoordinate(p).getKey();
+        String verticalWord = buildVerticalWordForCoordinate(board, changed_tile_coordinates.get(0)).getKey();
         // Now that we have the vertical word we've formed, let's see whether it is valid.
 
-        TrieNode tn = trie.getNodeForPrefix(verticalWord.toLowerCase());
+        TrieNode tn = trie.getNodeForPrefix(verticalWord);
 
 //        System.out.println("valid vertical word formed for " + verticalWord + " :" + (verticalWord.length() == 1 || (tn != null && tn.isWord())));
 //        changed_tile_coordinates.stream().forEach((pair)->{
@@ -532,7 +474,7 @@ public class Controller implements Initializable {
                 && (changed_tile_coordinates.stream().
                 filter((pair) ->
                         horizontalCrossCheckSetsForModelTranspose[pair.getValue()][pair.getKey()]
-                                .contains(viewModel[pair.getKey()][pair.getValue()].getText().toLowerCase().charAt(0)))
+                                .contains(board[pair.getKey()][pair.getValue()]))
                 .count() == changed_tile_coordinates.size() || isFirstTurn);
     }
 
@@ -540,14 +482,14 @@ public class Controller implements Initializable {
      * Is the letter that is at location "pair" in the GUI part of a valid word in the vertical direction?
      * @param p an (x,y) coordinate in the GUI denoting a location of an inserted tile
      */
-    private boolean validHorizontalPlay(Pair<Integer, Integer> p) {
+    private boolean validHorizontalPlay(char[][] board, List<Pair<Integer, Integer>> changed_tile_coordinates) {
         /*
          * First, check if the vertical part constitutes a word.
          */
-        String horizontalWord = buildHorizontalWordForCoordinate(p).getKey();
+        String horizontalWord = buildHorizontalWordForCoordinate(board, changed_tile_coordinates.get(0)).getKey();
         // Now that we have the vertical word we've formed, let's see whether it is valid.
 
-        TrieNode tn = trie.getNodeForPrefix(horizontalWord.toLowerCase());
+        TrieNode tn = trie.getNodeForPrefix(horizontalWord);
 
         /*
          * Second, check if the vertical words formed in a parallel play follow the cross sets.
@@ -562,7 +504,7 @@ public class Controller implements Initializable {
                 && (changed_tile_coordinates.stream().
                 filter((pair) ->
                         verticalCrossCheckSetsForModel[pair.getKey()][pair.getValue()]
-                                .contains(viewModel[pair.getKey()][pair.getValue()].getText().toLowerCase().charAt(0)))
+                                .contains(board[pair.getKey()][pair.getValue()]))
                 .count() == changed_tile_coordinates.size() || isFirstTurn);
     }
 
@@ -584,13 +526,17 @@ public class Controller implements Initializable {
 
         if (!playWasHorizontal)
         {
-            score += scoreVertical(changed_tile_coordinates.get(0));
-            score += changed_tile_coordinates.stream().map(this::scoreHorizontal).reduce((x,y)->x+y).get();
+            score += scoreVertical(BoardHelper.getViewModelAs2DArray(viewModel), changed_tile_coordinates.get(0));
+            score += changed_tile_coordinates.stream().map(x-> scoreHorizontal(BoardHelper.getViewModelAs2DArray(viewModel), x)).reduce((x,y)->x+y).get();
         }
         else
         {
-            score += scoreHorizontal(changed_tile_coordinates.get(0));
-            score += changed_tile_coordinates.stream().map(this::scoreVertical).reduce((x,y)->x+y).get();
+            score += scoreHorizontal(BoardHelper.getViewModelAs2DArray(viewModel), changed_tile_coordinates.get(0));
+            score += changed_tile_coordinates.stream().map(x -> scoreVertical(BoardHelper.getViewModelAs2DArray(viewModel), x)).reduce((x,y)->x+y).get();
+        }
+        if (changed_tile_coordinates.size() == 7)
+        {
+            score += 50;
         }
 
         playerScore.setText("Player Score:" + score);
@@ -622,8 +568,8 @@ public class Controller implements Initializable {
         // Step 6: clear changed_tiles list
         changed_tile_coordinates.clear();
 
-//        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Vertical set for " + x.toString() + " : " + verticalCrossCheckSetsForModel[x.getKey()][x.getValue()]));
-//        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
+        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Vertical set for " + x.toString() + " : " + verticalCrossCheckSetsForModel[x.getKey()][x.getValue()]));
+        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
 
         System.out.println("The CPU has in his hand : " + cpuHand.toString());
         // TODO Step 7: let CPU make its move
@@ -632,119 +578,6 @@ public class Controller implements Initializable {
         return;
     }
 
-    /**
-     *
-     * @param pair
-     * @return score
-     */
-    private int scoreHorizontal(Pair<Integer, Integer> pair) {
-
-        int row = pair.getKey();
-        int col = pair.getValue();
-
-        Pair<String, Integer> p = buildHorizontalWordForCoordinate(pair);
-        int start_index = p.getValue();
-        int length = p.getKey().length();
-
-        // If there is no word (of 2 or more letters) formed, return 0 immediately.
-        if (length == 1)
-        {
-            return 0;
-        }
-
-        Pair<Integer, Pair<Integer, Integer>> wordScoreTuple =
-        IntStream.range(start_index, start_index + length)
-                .mapToObj(c -> c)
-                .reduce(new Pair<>(0, new Pair<>(0, 0)),
-                    (acc, c) -> {
-                        int partialScore = acc.getKey();
-                        int dw_count = acc.getValue().getKey();
-                        int tw_count = acc.getValue().getValue();
-                        int letterScore = TileHelper.scoreCharacter(viewModel[row][c].getText().charAt(0));
-                        if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0') {
-                            switch (board_cells[row][c].getStyleClass().get(0).substring(0, 2)) {
-                                case "DW":
-                                    dw_count++;
-                                    break;
-                                case "TW":
-                                    tw_count++;
-                                    break;
-                                case "DL":
-                                    letterScore *= 2;
-                                    break;
-                                case "TL":
-                                    letterScore *= 3;
-                                    break;
-                            }
-                        }
-                        return new Pair<>(partialScore + letterScore, new Pair<>(dw_count, tw_count));
-                    }
-                , (pairA, pairB) ->
-                    new Pair<>(pairA.getKey() + pairB.getKey(),
-                            new Pair<>(pairA.getValue().getKey() + pairB.getValue().getKey(),
-                                    pairA.getValue().getValue() + pairB.getValue().getValue()))
-                    );
-
-        int baseScore = wordScoreTuple.getKey();
-        int dw_count = wordScoreTuple.getValue().getKey();
-        int tw_count = wordScoreTuple.getValue().getValue();
-
-        return (int) (baseScore * Math.pow(2, dw_count) * Math.pow(3, tw_count));
-    }
-
-    private int scoreVertical(Pair<Integer, Integer> pair) {
-        int row = pair.getKey();
-        int col = pair.getValue();
-
-        Pair<String, Integer> p = buildVerticalWordForCoordinate(pair);
-        int start_index = p.getValue();
-        int length = p.getKey().length();
-
-        // If there is no word (of 2 or more letters) formed, return 0 immediately.
-        if (length == 1)
-        {
-            return 0;
-        }
-
-        Pair<Integer, Pair<Integer, Integer>> wordScoreTuple =
-                IntStream.range(start_index, start_index + length)
-                        .mapToObj(r -> r)
-                        .reduce(new Pair<>(0, new Pair<>(0, 0)),
-                                (acc, r) -> {
-                                    int partialScore = acc.getKey();
-                                    int dw_count = acc.getValue().getKey();
-                                    int tw_count = acc.getValue().getValue();
-                                    int letterScore = TileHelper.scoreCharacter(viewModel[r][col].getText().charAt(0));
-                                    if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0') {
-                                        switch (board_cells[r][col].getStyleClass().get(0).substring(0, 2)) {
-                                            case "DW":
-                                                dw_count++;
-                                                break;
-                                            case "TW":
-                                                tw_count++;
-                                                break;
-                                            case "DL":
-                                                letterScore *= 2;
-                                                break;
-                                            case "TL":
-                                                letterScore *= 3;
-                                                break;
-                                        }
-                                    }
-                                    return new Pair<>(partialScore + letterScore, new Pair<>(dw_count, tw_count));
-                                }
-                                , (pairA, pairB) ->
-                                        new Pair<>(pairA.getKey() + pairB.getKey(),
-                                                new Pair<>(pairA.getValue().getKey() + pairB.getValue().getKey(),
-                                                        pairA.getValue().getValue() + pairB.getValue().getValue()))
-                        );
-
-        int baseScore = wordScoreTuple.getKey();
-        int dw_count = wordScoreTuple.getValue().getKey();
-        int tw_count = wordScoreTuple.getValue().getValue();
-
-        return (int) (baseScore * Math.pow(2, dw_count) * Math.pow(3, tw_count));
-    }
 
     /**
      * Computes the VERTICAL cross check sets for a given model.
@@ -760,7 +593,7 @@ public class Controller implements Initializable {
     private void computeCrossCheckSets(HashSet<Character>[][] crossCheckSets,
                                        char[][] model,
                                        List<Pair<Integer, Integer>> coordinates){
-        coordinates.stream().filter(pair -> model[pair.getKey()][pair.getValue()] == '\0').forEach((pair) -> {
+        coordinates.stream().filter(pair -> model[pair.getKey()][pair.getValue()] == ' ').forEach((pair) -> {
                 int i = pair.getKey();
                 int j = pair.getValue();
                 crossCheckSets[i][j].clear();
@@ -770,11 +603,11 @@ public class Controller implements Initializable {
                 {
                     StringBuilder verticalSuffixToThisSquare = new StringBuilder();
                     OptionalInt bot_exclusive = IntStream.range(i + 1, 15)
-                            .filter(r-> model[r][j] == '\0')
+                            .filter(r-> model[r][j] == ' ')
                             .findFirst();
                     IntStream.range(i + 1, bot_exclusive.isPresent() ? bot_exclusive.getAsInt() : 15)
                             .forEach(x -> {
-                               verticalSuffixToThisSquare.append(Character.toLowerCase(model[x][j]));
+                               verticalSuffixToThisSquare.append(model[x][j]);
                             });
 
                     prefixNode.getOutgoingEdges().keySet().forEach(c -> {
@@ -791,13 +624,13 @@ public class Controller implements Initializable {
     {
         Set<Pair<Integer, Integer>> anchorSquares = BoardHelper.getCoordinatesListForBoard()
                 .stream()
-                .filter(x -> mainModel[x.getKey()][x.getValue()] == '\0')
+                .filter(x -> mainModel[x.getKey()][x.getValue()] == ' ')
                 .filter(x -> Stream.concat(BoardHelper.generateListOfAdjacentHorizontalCoordinates(Collections.singletonList(x)).stream(),
                         BoardHelper.generateListOfAdjacentVerticalCoordinates(Collections.singletonList(x)).stream())
-                        .filter(p -> !p.equals(x) && mainModel[p.getKey()][p.getValue()] != '\0').count() > 0).collect(Collectors.toSet());
+                        .filter(p -> !p.equals(x) && mainModel[p.getKey()][p.getValue()] != ' ').count() > 0).collect(Collectors.toSet());
 
         System.out.println(anchorSquares.toString());
-
+        // TODO: I think all the logic in CPU move up until this point is valid.
         bestCPUPlay = new Pair<>(null, Integer.MIN_VALUE);
         anchorSquares.forEach(square -> computeBestHorizontalPlayAtAnchor(BoardHelper.getCopyOfModel(mainModel), anchorSquares, square, verticalCrossCheckSetsForModel));
 //        anchorSquares.stream().map(x -> new Pair<>(x.getValue(), x.getKey()))
@@ -807,21 +640,28 @@ public class Controller implements Initializable {
         {
             for (int j = 0; j < 15; j++)
             {
+                if (mainModel[i][j] != ' ')
+                {
+                    viewModel[i][j].getStyleClass().removeAll("bold-text");
+                    viewModel[i][j].getStyleClass().add("black-text");
+                }
                 if (bestCPUPlay.getKey()[i][j] != mainModel[i][j])
                 {
                     if (viewModel[i][j] == null)
                     {
                         viewModel[i][j] = new Text();
                         board_cells[i][j].getChildren().add(viewModel[i][j]);
-                        newSquaresPlacedLocations.add(new Pair(i, j));
                     }
+                    newSquaresPlacedLocations.add(new Pair(i, j));
                     viewModel[i][j].setText(bestCPUPlay.getKey()[i][j] + "");
+                    viewModel[i][j].getStyleClass().add("bold-text");
                     mainModel[i][j] = bestCPUPlay.getKey()[i][j];
+                    cpuHand.remove((Character)mainModel[i][j]);
                 }
             }
         }
-        computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, newSquaresPlacedLocations);
-        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, BoardHelper.getTransposeOfModel(mainModel), newSquaresPlacedLocations
+        computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, BoardHelper.generateListOfAdjacentVerticalCoordinates(newSquaresPlacedLocations));
+        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, BoardHelper.getTransposeOfModel(mainModel), BoardHelper.generateListOfAdjacentHorizontalCoordinates(newSquaresPlacedLocations)
                 .stream().map(x-> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toList()));
         int score = Integer.parseInt(cpuScore.getText().split(":")[1]);
         System.out.println("Current cpu score " + score);
@@ -850,34 +690,53 @@ public class Controller implements Initializable {
         int col = square.getValue();
         OptionalInt left_exclusive = IntStream.iterate(col - 1, i -> i - 1)
                 .limit(col)
-                .filter(c -> model[square.getKey()][c] != '\0' || anchors.contains(new Pair<>(square.getKey(), c)))
+                .filter(c -> model[square.getKey()][c] != ' ' || anchors.contains(new Pair<>(square.getKey(), c)))
                 .findFirst();
         int k = left_exclusive.isPresent() ? col - left_exclusive.getAsInt() - 1: col;
+        if (k == 0)
+        {
+            if (col == 0)
+            {
+                ExtendRight(model, square, "", cpuHand, trie.root, verticalCrossCheckSets);
+            }
+            else if (model[square.getKey()][col - 1] != ' ')
+            {
+                String prefix = buildHorizontalWordForCoordinate(model, new Pair<>(square.getKey(), col - 1)).getKey();
+                ExtendRight(model, square, prefix, cpuHand, trie.getNodeForPrefix(prefix), verticalCrossCheckSets);
+            }
+        }
 
         LeftPart(model, square,"", cpuHand, trie.root, verticalCrossCheckSets, k, k);
     }
 
     private void LeftPart(char[][] board, Pair<Integer,Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets, int limit, int maxLimit)
     {
+        for (int i = 0 ; i < 15 ; i++) {
+            for (int j = 0; j< 15; j++)
+            {
+                System.out.print(board[i][j]);
+            }
+            System.out.println();
+        }
         ExtendRight(board, square, partialWord, tilesRemainingInRack, N, crossCheckSets);
         if (limit > 0)
         {
             N.getOutgoingEdges().keySet().forEach(c -> {
-                if (tilesRemainingInRack.contains(Character.toUpperCase(c)))
+                if (tilesRemainingInRack.contains((Character)c))
                 {
                     for (int i = square.getValue() - maxLimit; i < square.getValue(); i++)
                     {
                         board[square.getKey()][i] = board[square.getKey()][i + 1];
                     }
-                    board[square.getKey()][square.getValue() - 1] = Character.toUpperCase(c);
-                    tilesRemainingInRack.remove((Character)Character.toUpperCase(c));
+                    board[square.getKey()][square.getValue() - 1] = c;
+                    tilesRemainingInRack.remove((Character)c);
                     LeftPart(board, square, partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets, limit - 1, maxLimit);
-                    tilesRemainingInRack.add(Character.toUpperCase(c));
+                    tilesRemainingInRack.add(c);
                     for (int i = square.getValue() - 1; i > square.getValue() - maxLimit; i--)
                     {
                         board[square.getKey()][i] = board[square.getKey()][i - 1];
                     }
-                    board[square.getKey()][square.getValue() - maxLimit] = '\0';
+                    board[square.getKey()][square.getValue() - maxLimit] = ' ';
                 }
             });
         }
@@ -885,30 +744,37 @@ public class Controller implements Initializable {
 
     private void ExtendRight(char[][] board, Pair<Integer, Integer> square, String partialWord, List<Character> tilesRemainingInRack, TrieNode N, HashSet<Character>[][] crossCheckSets)
     {
+        for (int i = 0 ; i < 15 ; i++) {
+            for (int j = 0; j< 15; j++)
+            {
+                System.out.print(board[i][j]);
+            }
+            System.out.println();
+        }
         if (square.getValue() >= 15)
             return;
-        if (board[square.getKey()][square.getValue()] == '\0')
+        if (board[square.getKey()][square.getValue()] == ' ')
         {
             if (N.isWord())
             {
                 LegalMove(board, partialWord);
             }
             N.getOutgoingEdges().keySet().forEach(c -> {
-                if (tilesRemainingInRack.contains(Character.toUpperCase(c)) && crossCheckSets[square.getKey()][square.getValue()].contains(c))
+                if (tilesRemainingInRack.contains(c) && crossCheckSets[square.getKey()][square.getValue()].contains(c))
                 {
-                    tilesRemainingInRack.remove((Character)Character.toUpperCase(c));
-                    board[square.getKey()][square.getValue()] = Character.toUpperCase(c);
+                    tilesRemainingInRack.remove((Character)c);
+                    board[square.getKey()][square.getValue()] = c;
                     ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + c, tilesRemainingInRack, N.getOutgoingEdges().get(c), crossCheckSets);
-                    board[square.getKey()][square.getValue()] = '\0';
-                    tilesRemainingInRack.add(Character.toUpperCase(c));
+                    board[square.getKey()][square.getValue()] = ' ';
+                    tilesRemainingInRack.add(c);
                 }
             });
         }
         else
         {
-            if (N.getOutgoingEdges().containsKey(Character.toLowerCase(board[square.getKey()][square.getValue()])))
+            if (N.getOutgoingEdges().containsKey(board[square.getKey()][square.getValue()]))
             {
-                ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + board[square.getKey()][square.getValue()], tilesRemainingInRack, N.getOutgoingEdges().get(Character.toLowerCase(board[square.getKey()][square.getValue()])), crossCheckSets);
+                ExtendRight(board, new Pair<>(square.getKey(), square.getValue() + 1), partialWord + board[square.getKey()][square.getValue()], tilesRemainingInRack, N.getOutgoingEdges().get(board[square.getKey()][square.getValue()]), crossCheckSets);
             }
         }
     }
@@ -920,12 +786,17 @@ public class Controller implements Initializable {
             int c = x.getValue();
             return board[r][c] != mainModel[r][c];
         }).collect(Collectors.toList());
-
+        if (changed_coords_by_cpu.size() == 0 || !isValidMove(board, changed_coords_by_cpu))
+            return;
         // Since we know the move was horizontal, let's score it.
         int score = changed_coords_by_cpu.stream().reduce(scoreHorizontal(board, changed_coords_by_cpu.get(0)),
                 (acc, x) -> {
                     return acc + scoreVertical(board, x);
                 }, (acc1, acc2) -> acc1 + acc2);
+        if (changed_coords_by_cpu.size() == 7)
+        {
+            score += 50;
+        }
         if (score > bestCPUPlay.getValue())
         {
             Character[][] boardToSave = new Character[15][15];
@@ -939,6 +810,12 @@ public class Controller implements Initializable {
 
     }
 
+    /**
+     * You must invoke this function before propagating board --> mainModel. Likewise for scoreHorizontal.
+     * @param board
+     * @param pair
+     * @return
+     */
     private int scoreVertical(char[][] board, Pair<Integer, Integer> pair) {
         int row = pair.getKey();
         int col = pair.getValue();
@@ -961,8 +838,8 @@ public class Controller implements Initializable {
                                     int partialScore = acc.getKey();
                                     int dw_count = acc.getValue().getKey();
                                     int tw_count = acc.getValue().getValue();
-                                    int letterScore = TileHelper.scoreCharacter(Character.toLowerCase(board[r][col]));
-                                    if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == '\0') {
+                                    int letterScore = TileHelper.scoreCharacter(board[r][col]);
+                                    if (board_cells[r][col].getStyleClass().size() > 0 && mainModel[r][col] == ' ') {
                                         switch (board_cells[r][col].getStyleClass().get(0).substring(0, 2)) {
                                             case "DW":
                                                 dw_count++;
@@ -1017,7 +894,7 @@ public class Controller implements Initializable {
                                     int dw_count = acc.getValue().getKey();
                                     int tw_count = acc.getValue().getValue();
                                     int letterScore = TileHelper.scoreCharacter(board[row][c]);
-                                    if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == '\0') {
+                                    if (board_cells[row][c].getStyleClass().size() > 0 && mainModel[row][c] == ' ') {
                                         switch (board_cells[row][c].getStyleClass().get(0).substring(0, 2)) {
                                             case "DW":
                                                 dw_count++;
