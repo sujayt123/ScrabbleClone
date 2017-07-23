@@ -85,11 +85,6 @@ public class Controller implements Initializable {
     private HashSet<Character>[][] verticalCrossCheckSetsForModel, horizontalCrossCheckSetsForModelTranspose;
 
     /**
-     * Work-around for an edge case with JavaFX drag-n-drop implementation
-     */
-    private boolean wasDropSuccessful = false;
-
-    /**
      * A prefix tree data structure to house the dictionary of scrabble words. See "util" for more information.
      */
     private static Trie trie;
@@ -198,16 +193,23 @@ public class Controller implements Initializable {
                                  */
                                 viewModel[row][col].getStyleClass().add("black-text");
                             }
+                            System.out.println(db.getString());
                             viewModel[row][col].setText(db.getString());
+                            // Remove from hand.
+                            for (int i = 0; i < playerHandHBox.getChildren().size(); i++)
+                            {
+                                if (((Text)(((StackPane)playerHandHBox.getChildren().get(i)).getChildren().get(0))).getText().equals(db.getString()))
+                                {
+                                    playerHandHBox.getChildren().remove(i);
+                                    break;
+                                }
+                            }
                             success = true;
-                            // work-around for javafx edge case
-                            wasDropSuccessful = true;
                         }
                         /* let the source know whether the string was successfully
                          * transferred and used */
                         event.setDropCompleted(success);
                         changed_tile_coordinates.add(new Pair<>(row, col));
-
                         event.consume();
                 });
         });
@@ -282,10 +284,6 @@ public class Controller implements Initializable {
 
         s.setOnDragDone((event) -> {
             /* if the data was successfully moved, clear it */
-            if (event.getTransferMode() == TransferMode.MOVE && wasDropSuccessful) {
-                playerHandHBox.getChildren().remove(s);
-                wasDropSuccessful = false;
-            }
             event.consume();
         });
     }
