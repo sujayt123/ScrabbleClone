@@ -462,10 +462,9 @@ public class Controller implements Initializable {
         TrieNode tn = trie.getNodeForPrefix(verticalWord);
 
 //        System.out.println("valid vertical word formed for " + verticalWord + " :" + (verticalWord.length() == 1 || (tn != null && tn.isWord())));
-//        changed_tile_coordinates.stream().forEach((pair)->{
-//            System.out.println(pair.toString() + " has horizontal cross check sets of " + horizontalCrossCheckSetsForModelTranspose[pair.getValue()][pair.getKey()]);
-//            System.out.println("What's sitting there right now in the ViewModel? " + viewModel[pair.getKey()][pair.getValue()].getText().toLowerCase());
-//        });
+        changed_tile_coordinates.stream().forEach((pair)->{
+            System.out.println(pair.toString() + " has horizontal cross check sets of " + horizontalCrossCheckSetsForModelTranspose[pair.getValue()][pair.getKey()]);
+        });
 
         /*
          * Second, check if the horizontal words formed in a parallel play follow the cross sets.
@@ -495,10 +494,9 @@ public class Controller implements Initializable {
          * Second, check if the vertical words formed in a parallel play follow the cross sets.
          */
 //        System.out.println("valid horizontal word formed for " + horizontalWord + " :" + (horizontalWord.length() == 1 || (tn != null && tn.isWord())));
-//        changed_tile_coordinates.stream().forEach((pair)->{
-//            System.out.println(pair.toString() + " has vertical cross check sets of " + verticalCrossCheckSetsForModel[pair.getKey()][pair.getValue()]);
-//            System.out.println("What's sitting there right now in the ViewModel? " + viewModel[pair.getKey()][pair.getValue()].getText().toLowerCase());
-//        });
+        changed_tile_coordinates.stream().forEach((pair)->{
+            System.out.println(pair.toString() + " has vertical cross check sets of " + verticalCrossCheckSetsForModel[pair.getKey()][pair.getValue()]);
+        });
 
         return (horizontalWord.length() == 1 || (tn != null && tn.isWord()))
                 && (changed_tile_coordinates.stream().
@@ -561,10 +559,11 @@ public class Controller implements Initializable {
         });
 
         // Step 5: Recompute cross sets
-        computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, BoardHelper.generateListOfAdjacentVerticalCoordinates(changed_tile_coordinates));
-        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, BoardHelper.getTransposeOfModel(mainModel), BoardHelper.generateListOfAdjacentHorizontalCoordinates(changed_tile_coordinates)
-                .stream().map(x-> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toList()));
-
+//        computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, BoardHelper.generateListOfAdjacentVerticalCoordinates(changed_tile_coordinates));
+//        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, BoardHelper.getTransposeOfModel(mainModel), BoardHelper.generateListOfAdjacentHorizontalCoordinates(changed_tile_coordinates)
+//                .stream().map(x-> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toList()));
+        computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, BoardHelper.getCoordinatesListForBoard());
+        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, BoardHelper.getTransposeOfModel(mainModel), BoardHelper.getCoordinatesListForBoard());
         // Step 6: clear changed_tiles list
         changed_tile_coordinates.clear();
 
@@ -616,6 +615,12 @@ public class Controller implements Initializable {
                             crossCheckSets[i][j].add(c);
                         }
                     });
+
+                    if (prefixNode == trie.root && verticalSuffixToThisSquare.toString().equals(""))
+                    {
+                        crossCheckSets[i][j].addAll(IntStream.range((int)'A', (int)'Z').mapToObj(x-> (char)x).collect(Collectors.toList()));
+
+                    }
                 }
             });
     }
