@@ -714,7 +714,7 @@ public class Controller implements Initializable {
                 {
                     viewModel.get(r).get(c).setText(bestScoringBoard.get(r).get(c) + "");
                     viewModel.get(r).get(c).getStyleClass().add("bold-text");
-                    viewModel.get(r).get(c).getStyleClass().add("played-text");
+                    board_cells[r][c].getStyleClass().add("played-tile");
                 }
                 cpuHand.remove((Character)bestScoringBoard.get(r).get(c));
                 return bestScoringBoard.get(r).get(c);
