@@ -313,7 +313,6 @@ public class Controller implements Initializable {
             statusMessage.setText("Your move has been registered.");
             statusMessage.getStyleClass().clear();
             statusMessage.getStyleClass().add("success-text");
-            isFirstTurn = false;
             makePlayerMove();
         }
         else
@@ -577,6 +576,7 @@ public class Controller implements Initializable {
             }
         });
 
+        isFirstTurn = false;
         // Step 5: Recompute cross sets
         List<List<Character>> transposeOfMainModel = forEachBoardSquareAsNestedList((r, c) -> mainModel.get(c).get(r));
 
@@ -669,16 +669,24 @@ public class Controller implements Initializable {
             return s;
         };
 
-        Set<Pair<Integer, Integer>> anchorSquares = forEachBoardSquareAsList((r, c) -> {
-            boolean validAnchorSquare = (mainModel.get(r).get(c) == ' ');
-            List<Pair<Integer, Integer>> neighbors = generateVerticalNeighbors.apply(r, c);
-            neighbors.addAll(generateHorizontalNeighbors.apply(r, c));
-            validAnchorSquare = validAnchorSquare && neighbors.stream().anyMatch((pair) ->
+        Set<Pair<Integer, Integer>> anchorSquares;
+
+        if(!isFirstTurn){
+            anchorSquares = forEachBoardSquareAsList((r, c) -> {
+                boolean validAnchorSquare = (mainModel.get(r).get(c) == ' ');
+                List<Pair<Integer, Integer>> neighbors = generateVerticalNeighbors.apply(r, c);
+                neighbors.addAll(generateHorizontalNeighbors.apply(r, c));
+                validAnchorSquare = validAnchorSquare && neighbors.stream().anyMatch((pair) ->
                         mainModel.get(pair.getKey()).get(pair.getValue()) != ' ');
-            if (validAnchorSquare)
-                return new Pair<>(r,c);
-            return null;
-        }).stream().filter(Objects::nonNull).collect(Collectors.toSet());
+                if (validAnchorSquare)
+                    return new Pair<>(r,c);
+                return null;
+            }).stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        }
+        else
+        {
+            anchorSquares = getCoordinatesListForBoard().stream().collect(Collectors.toSet());
+        }
 
         List<List<Character>> copyOfMainModel = forEachBoardSquareAsNestedList((r, c) -> mainModel.get(r).get(c));
         List<List<Character>> transposeOfMainModel = forEachBoardSquareAsNestedList((r, c) -> mainModel.get(c).get(r));
@@ -686,7 +694,7 @@ public class Controller implements Initializable {
         Set<Pair<Integer, Integer>> transposedAnchorSquares =
                 anchorSquares.stream().map(x -> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toSet());
 
-        System.out.println(anchorSquares.toString());
+        System.out.println("anchors " + anchorSquares.toString());
 
         bestCPUPlay = new Pair<>(null, new Pair<>("", Integer.MIN_VALUE));
 
@@ -741,6 +749,7 @@ public class Controller implements Initializable {
                 cpuHand.add(c);
             }
         }
+        isFirstTurn = false;
     }
 
 
