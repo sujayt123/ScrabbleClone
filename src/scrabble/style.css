@@ -54,4 +54,7 @@
     -fx-fill: red;
 }
 
+.played-tile {
+    -fx-background-color: lightyellow;
+}
 

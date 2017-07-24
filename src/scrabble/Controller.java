@@ -216,6 +216,7 @@ public class Controller implements Initializable {
                                     );
 
                             success = true;
+                            child.getStyleClass().add("played-tile");
                         }
                         /* let the source know whether the string was successfully
                          * transferred and used */
@@ -246,6 +247,7 @@ public class Controller implements Initializable {
     {
         forEachProvidedSquareAsList((i, j) -> {
             addTileToUserHand(viewModel.get(i).get(j).getText().charAt(0));
+            board_cells[i][j].getStyleClass().removeAll("played-tile");
 
             // Reset the view model's text in accordance with whether it's a special tile.
             if (board_cells[i][j].getStyleClass().size() > 0)
@@ -587,7 +589,6 @@ public class Controller implements Initializable {
 //        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
 
         System.out.println("The CPU has in his hand : " + cpuHand.toString());
-        // TODO Step 7: let CPU make its move
         makeCPUMove();
 
         return;
@@ -686,7 +687,6 @@ public class Controller implements Initializable {
                 anchorSquares.stream().map(x -> new Pair<>(x.getValue(), x.getKey())).collect(Collectors.toSet());
 
         System.out.println(anchorSquares.toString());
-        // TODO: I think all the logic in CPU move up until this point is valid.
 
         bestCPUPlay = new Pair<>(null, new Pair<>("", Integer.MIN_VALUE));
 
@@ -714,6 +714,7 @@ public class Controller implements Initializable {
                 {
                     viewModel.get(r).get(c).setText(bestScoringBoard.get(r).get(c) + "");
                     viewModel.get(r).get(c).getStyleClass().add("bold-text");
+                    viewModel.get(r).get(c).getStyleClass().add("played-text");
                 }
                 cpuHand.remove((Character)bestScoringBoard.get(r).get(c));
                 return bestScoringBoard.get(r).get(c);
