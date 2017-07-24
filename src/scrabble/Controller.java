@@ -93,7 +93,7 @@ public class Controller implements Initializable {
     private static Trie trie;
 
     /**
-     * Flag to invoke additional logic checks if it's the player's first turn.
+     * Flag to invoke additional logic checks if it's the first turn of gameplay.
      */
     private boolean isFirstTurn = true;
 
@@ -696,6 +696,8 @@ public class Controller implements Initializable {
 
         System.out.println("anchors " + anchorSquares.toString());
 
+        statusMessage.getStyleClass().clear();
+        statusMessage.getStyleClass().add("success-text");
         bestCPUPlay = new Pair<>(null, new Pair<>("", Integer.MIN_VALUE));
 
         anchorSquares.forEach(square -> computeBestHorizontalPlayAtAnchor(copyOfMainModel, anchorSquares, square, verticalCrossCheckSetsForModel, false));
@@ -730,7 +732,19 @@ public class Controller implements Initializable {
         }
         else
         {
-            System.out.println("Could not find anything to play with these characters");
+//            System.out.println("Could not find anything to play with these characters");
+            if (tilesRemaining.size() >= 7)
+            {
+                // Attempt swap by dumping all cpu tiles into bag, and then randomly redrawing 7.
+                tilesRemaining.addAll(cpuHand);
+                cpuHand.clear();
+                IntStream.range(0, 7).forEach(i -> cpuHand.add(tilesRemaining.poll()));
+                statusMessage.setText("CPU swapped some tiles.");
+            }
+            else
+            {
+                statusMessage.setText("CPU passed the turn.");
+            }
             return;
         }
 
