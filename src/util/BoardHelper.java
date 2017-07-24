@@ -1,10 +1,10 @@
 package util;
 
-import javafx.scene.text.Text;
 import javafx.util.Pair;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -13,74 +13,80 @@ import java.util.stream.IntStream;
  */
 public class BoardHelper {
 
-    private static List<Pair<Integer, Integer>> matrixOfCoords = IntStream.range(0, 15).mapToObj(r-> IntStream.range(0, 15).mapToObj(x->x)
-            .reduce(new ArrayList<Pair<Integer, Integer>>(), (acc, c) -> {acc.add(new Pair<>(r, c));return acc;},
-                    (acc1, acc2)-> {
-                        acc1.addAll(acc2);
-                        return acc1;
-                    })).flatMap(List::stream).collect(Collectors.toList());
+    private static List<Pair<Integer, Integer>> matrixOfCoords;
 
+    /**
+     * Returns a singleton of the list containing all (x, y) coordinate pairs for the Scrabble board.
+     *
+     * @return List of elements with x ranging from 0 to 14 and y ranging from 0 to 14
+     */
     public static List<Pair<Integer,Integer>> getCoordinatesListForBoard()
     {
+        if (matrixOfCoords == null)
+        {
+            matrixOfCoords = forEachBoardSquareAsList(Pair::new);
+        }
         return matrixOfCoords;
     }
 
-    public static List<Pair<Integer, Integer>> generateListOfAdjacentVerticalCoordinates(List<Pair<Integer, Integer>> changed_coords)
+    /**
+     * Applies the function biFunction to each square in the board and returns its results on each coordinate as a list.
+     * @param biFunction A lambda that takes in two integers as input and spits something out as output
+     * @param <T> The output type
+     * @return a List of T
+     */
+    public static <T> List<T> forEachBoardSquareAsList(BiFunction<Integer, Integer, T> biFunction)
     {
-        return changed_coords.stream().map((pair) -> {
-            int r = pair.getKey();
-            int c = pair.getValue();
-            List<Pair<Integer, Integer>> output = new ArrayList<>();
-            if (r > 0)
-                    output.add(new Pair<>(r - 1, c));
-            if (r < 14)
-                output.add(new Pair<>(r + 1, c));
-            return output;
-        }).flatMap(List::stream).collect(Collectors.toList());
+        return IntStream.range(0, 15)
+                .mapToObj(x->x)
+                .flatMap(i ->
+                        IntStream.range(0, 15)
+                                .mapToObj(j -> biFunction.apply(i, j))).collect(Collectors.toList());
     }
 
-    public static List<Pair<Integer, Integer>> generateListOfAdjacentHorizontalCoordinates(List<Pair<Integer, Integer>> changed_coords)
+    /**
+     * Applies the function biFunction to each square in the board and returns its results on each coordinate as a list.
+     * @param biFunction A lambda that takes in two integers as input and spits something out as output
+     * @param <T> The output type
+     * @return a List of T
+     */
+    public static <T> List<List<T>> forEachBoardSquareAsNestedList(BiFunction<Integer, Integer, T> biFunction)
     {
-        return changed_coords.stream().map((pair) -> {
-            int r = pair.getKey();
-            int c = pair.getValue();
-            List<Pair<Integer, Integer>> output = new ArrayList<>();
-            if (c > 0)
-                output.add(new Pair<>(r, c - 1));
-            if (c < 14)
-                output.add(new Pair<>(r, c + 1));
-            return output;
-        }).flatMap(List::stream).collect(Collectors.toList());
+        return IntStream.range(0, 15)
+                .mapToObj(x->x)
+                .map(i ->
+                        IntStream.range(0, 15)
+                                .mapToObj(j -> biFunction.apply(i, j)).collect(Collectors.toList()))
+                .collect(Collectors.toList());
     }
 
-    public static char[][] getTransposeOfModel(char[][] model)
+    /**
+     * Applies the function biFunction to each provided square and returns its results on each coordinate as a list.
+     * @param biFunction A lambda that takes in two integers as input and spits something out as output
+     * @param input the input list of coords
+     * @param <T> The output type
+     * @return a List of T
+     * @return
+     */
+    public static <T> List<T> forEachProvidedSquareAsList(BiFunction<Integer, Integer, T> biFunction, List<Pair<Integer, Integer>> input)
     {
-        char[][] newArray = new char[15][15];
-        matrixOfCoords.forEach((pair)->{
-           newArray[pair.getKey()][pair.getValue()] = model[pair.getValue()][pair.getKey()];
-        });
-        return newArray;
+        return input.stream().map((pair) -> {
+          int r = pair.getKey();
+          int c = pair.getValue();
+          return biFunction.apply(r, c);
+        }).collect(Collectors.toList());
     }
 
-    public static char[][] getCopyOfModel(char[][] model)
+    /**
+     * Applies the Function function to each letter in the alphabet and returns the output as a list of results.
+     * @param function A lambda that takes in two integers as input and spits something out as output
+     * @param <T> The output type
+     * @return a List of T
+     */
+    public static <T, U> List<U> forEachAtoZ(Function<Character, U> function)
     {
-        char[][] newArray = new char[15][15];
-        matrixOfCoords.forEach((pair)->{
-            newArray[pair.getKey()][pair.getValue()] = model[pair.getKey()][pair.getValue()];
-        });
-        return newArray;
+        return IntStream.rangeClosed((int)'A', (int)'Z').
+                mapToObj(x-> (char)x).map(function).collect(Collectors.toList());
     }
 
-    public static char[][] getViewModelAs2DArray(Text[][] viewModel)
-    {
-        char[][] newArray = new char[15][15];
-        getCoordinatesListForBoard().forEach((pair) -> {
-            newArray[pair.getKey()][pair.getValue()] = ' ';
-            if (viewModel[pair.getKey()][pair.getValue()] != null && viewModel[pair.getKey()][pair.getValue()].getText().length() == 1)
-            {
-                newArray[pair.getKey()][pair.getValue()] = viewModel[pair.getKey()][pair.getValue()].getText().charAt(0);
-            }
-        });
-        return newArray;
-    }
 }
