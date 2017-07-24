@@ -515,14 +515,14 @@
                      <children>
                         <VBox alignment="CENTER" prefHeight="200.0" prefWidth="120.0" spacing="5.0">
                            <children>
-                              <Button maxWidth="120.0" mnemonicParsing="false" onAction="#attemptPlayerMove" text="Move" />
-                              <Button maxWidth="120.0" mnemonicParsing="false" onAction="#recallTiles" text="Recall" />
+                              <Button fx:id="moveButton" maxWidth="120.0" mnemonicParsing="false" onAction="#attemptPlayerMove" text="Move" />
+                              <Button fx:id="recallButton" maxWidth="120.0" mnemonicParsing="false" onAction="#recallTiles" text="Recall" />
                            </children>
                         </VBox>
                         <VBox alignment="CENTER" layoutX="10.0" layoutY="10.0" prefHeight="200.0" prefWidth="120.0" spacing="5.0">
                            <children>
-                              <Button maxWidth="120.0" mnemonicParsing="false" onAction="#passTurn" text="Pass" />
-                              <Button maxWidth="120.0" mnemonicParsing="false" text="Swap Tiles" />
+                              <Button fx:id="passButton" maxWidth="120.0" mnemonicParsing="false" onAction="#passTurn" text="Pass" />
+                              <Button fx:id="swapTilesButton" maxWidth="120.0" mnemonicParsing="false" onAction="#attemptSwap" text="Swap Tiles" />
                            </children>
                         </VBox>
                      </children>

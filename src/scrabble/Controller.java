@@ -4,6 +4,7 @@ import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
@@ -26,7 +27,7 @@ public class Controller implements Initializable {
     /**
      *  Access to the GUI representation of the board. Useful for defining drag-and-drop events.
      */
-    private StackPane[][] board_cells = new StackPane[15][15];
+    private StackPane[][] board_cells;
 
     /**
      * Access to the GUI GridPane.
@@ -51,6 +52,12 @@ public class Controller implements Initializable {
      */
     @FXML
     private Text cpuScore;
+
+    /**
+     * The buttons in the layout.
+     */
+    @FXML
+    private Button moveButton, passButton, recallButton, swapTilesButton;
 
     /**
      * Access to the text region containing the status message.
@@ -93,11 +100,20 @@ public class Controller implements Initializable {
     private static Trie trie;
 
     /**
+     * Flag to disallow placement of tiles on board while the user is swapping.
+     */
+    private boolean isSwapping;
+
+    private int cpuConsecutiveZeroScoringTurns, playerConsecutiveZeroScoringTurns;
+
+    /**
      * Flag to invoke additional logic checks if it's the first turn of gameplay.
      */
     private boolean isFirstTurn = true;
 
     private Pair<List<List<Character>>, Pair<String, Integer>> bestCPUPlay = new Pair<>(null, new Pair<>(null, Integer.MAX_VALUE));
+
+    private List<StackPane> elementsToSwap;
 
     /**
      * Initialization code that runs at application boot-time.
@@ -111,12 +127,17 @@ public class Controller implements Initializable {
         {
             trie = new Trie();
         }
+        board_cells = new StackPane[15][15];
+
+        cpuConsecutiveZeroScoringTurns = 0;
+        playerConsecutiveZeroScoringTurns = 0;
 
         /*
          * Generate the mainModel and viewModel Arraylists.
          */
         mainModel = forEachBoardSquareAsNestedList((r, c) -> ' ');
         viewModel = forEachBoardSquareAsNestedList((r, c) -> new Text(" "));
+        elementsToSwap = new ArrayList<>();
 
         /* Create (and initialize, if needed) initial data structures housing board information. */
         changed_tile_coordinates = new ArrayList<>();
@@ -160,7 +181,8 @@ public class Controller implements Initializable {
                          * and if it has a string data. also, ensure that
                           * the board cell can actually receive this tile */
                         Text viewModelText = viewModel.get(row).get(col);
-                        if (event.getGestureSource() != child &&
+                        if (!isSwapping &&
+                                event.getGestureSource() != child &&
                                 event.getDragboard().hasString() &&
                                 (viewModelText.getText().length() == 2 ||
                                  viewModelText.getText().charAt(0) == ' ')) {
@@ -174,7 +196,8 @@ public class Controller implements Initializable {
                         /* the drag-and-drop gesture entered the target */
                         /* show to the user that it is an actual gesture target */
                         Text viewModelText = viewModel.get(row).get(col);
-                        if (event.getGestureSource() != child &&
+                        if (!isSwapping &&
+                                event.getGestureSource() != child &&
                                 event.getDragboard().hasString() &&
                                 (viewModelText.getText().length() == 2 ||
                                         viewModelText.getText().charAt(0) == ' ')) {
@@ -281,6 +304,32 @@ public class Controller implements Initializable {
         s.getChildren().add(new Text(letter + ""));
         playerHandHBox.getChildren().add(s);
 
+        s.setOnMouseClicked((e) -> {
+            if (isSwapping)
+            {
+                // First, check if this tile is already in the to-swap list.
+                if (elementsToSwap.contains(s))
+                {
+                    // If it does, remove it from that list.
+                    elementsToSwap.remove(s);
+
+                    s.getStyleClass().removeAll("selected-for-swap");
+
+                    // If doing so sets the list size to 0, disable the ready button.
+                    if (elementsToSwap.size() == 0)
+                    {
+                        swapTilesButton.setDisable(true);
+                    }
+                }
+                else
+                {
+                    elementsToSwap.add(s);
+                    swapTilesButton.setDisable(false);
+                    s.getStyleClass().add("selected-for-swap");
+                }
+            }
+        });
+
         // Mark the user's tiles as valid sources for a drag n' drop motion.
         s.setOnDragDetected((event) -> {
             /* drag was detected, start drag-and-drop gesture*/
@@ -317,7 +366,7 @@ public class Controller implements Initializable {
         }
         else
         {
-            statusMessage.setText("That didn't work out so well.");
+            statusMessage.setText("Not a valid play.");
             statusMessage.getStyleClass().clear();
             statusMessage.getStyleClass().add("error-text");
         }
@@ -520,6 +569,7 @@ public class Controller implements Initializable {
      */
     private void makePlayerMove()
     {
+        playerConsecutiveZeroScoringTurns = 0;
 //        System.out.println("Valid move");
 
         // Step 1: increment player score
@@ -589,9 +639,17 @@ public class Controller implements Initializable {
 //        BoardHelper.getCoordinatesListForBoard().forEach(x->System.out.println("Horizontal set for " + x.toString() + " : " + horizontalCrossCheckSetsForModelTranspose[x.getValue()][x.getKey()]));
 
         System.out.println("The CPU has in his hand : " + cpuHand.toString());
-        makeCPUMove();
+        if (!gameOver(playerHand, playerConsecutiveZeroScoringTurns))
+        {
+            disablePlayerActions();
+            makeCPUMove();
+            enablePlayerActions();
+        }
+        else
+        {
+            cleanup();
+        }
 
-        return;
     }
 
 
@@ -718,6 +776,7 @@ public class Controller implements Initializable {
 
         if (bestScoringBoard != null)
         {
+            cpuConsecutiveZeroScoringTurns = 0;
             mainModel = forEachBoardSquareAsNestedList((r, c) -> {
                 // Side effects on the View Model
                 if (bestScoringBoard.get(r).get(c) != mainModel.get(r).get(c))
@@ -732,11 +791,16 @@ public class Controller implements Initializable {
         }
         else
         {
+            cpuConsecutiveZeroScoringTurns++;
 //            System.out.println("Could not find anything to play with these characters");
             if (tilesRemaining.size() >= 7)
             {
                 // Attempt swap by dumping all cpu tiles into bag, and then randomly redrawing 7.
                 tilesRemaining.addAll(cpuHand);
+                List<Character> shuffledTiles = new ArrayList<>(tilesRemaining);
+                Collections.shuffle(shuffledTiles);
+                tilesRemaining.clear();
+                tilesRemaining.addAll(shuffledTiles);
                 cpuHand.clear();
                 IntStream.range(0, 7).forEach(i -> cpuHand.add(tilesRemaining.poll()));
                 statusMessage.setText("CPU swapped some tiles.");
@@ -744,6 +808,10 @@ public class Controller implements Initializable {
             else
             {
                 statusMessage.setText("CPU passed the turn.");
+            }
+            if (gameOver(cpuHand, cpuConsecutiveZeroScoringTurns))
+            {
+                cleanup();
             }
             return;
         }
@@ -764,6 +832,10 @@ public class Controller implements Initializable {
             }
         }
         isFirstTurn = false;
+        if (gameOver(cpuHand, cpuConsecutiveZeroScoringTurns))
+        {
+            cleanup();
+        }
     }
 
 
@@ -1023,7 +1095,111 @@ public class Controller implements Initializable {
 
     public void passTurn()
     {
+        playerConsecutiveZeroScoringTurns++;
         recallTiles();
-        makeCPUMove();
+        if (!gameOver(playerHand, playerConsecutiveZeroScoringTurns))
+        {
+            disablePlayerActions();
+            makeCPUMove();
+            enablePlayerActions();
+        }
+        else
+        {
+            cleanup();
+        }
+    }
+
+    public void attemptSwap()
+    {
+        if (tilesRemaining.size() < 7)
+        {
+            statusMessage.setText("Cannot swap when fewer than 7 tiles remaining in bag.");
+            statusMessage.getStyleClass().clear();
+            statusMessage.getStyleClass().add("error-text");
+            return;
+        }
+        isSwapping = true;
+        disablePlayerActions();
+        recallTiles();
+        statusMessage.setText("Select the tiles to swap and hit ready, or hit back.");
+        swapTilesButton.setText("Ready");
+        recallButton.setText("Back");
+        recallButton.setOnAction((ev) -> {
+            recallButton.setText("Recall");
+            swapTilesButton.setText("Swap Tiles");
+            isSwapping = false;
+            elementsToSwap.forEach(s -> {
+               s.getStyleClass().removeAll("selected-for-swap");
+            });
+            elementsToSwap.clear();
+            enablePlayerActions();
+            swapTilesButton.setOnAction((e) -> attemptSwap());
+            recallButton.setOnAction((e) -> recallTiles());
+        });
+        swapTilesButton.setOnAction((ev) -> {
+            // Add new tiles from bag to player hand, prepare to add tiles discarded from player hand back to bag.
+            List<Character> returnToBag = elementsToSwap.stream().map((s) -> {
+                playerHandHBox.getChildren().remove(s);
+                char toRemove = (Character)(((Text)s.getChildren().get(0)).getText().charAt(0));
+                playerHand.remove((Character)toRemove);
+                char toAdd = tilesRemaining.poll();
+                playerHand.add(toAdd);
+                addTileToUserHand(toAdd);
+                return toRemove;
+            }).collect(Collectors.toList());
+            tilesRemaining.addAll(returnToBag);
+            List<Character> shuffledTiles = new ArrayList<>(tilesRemaining);
+            Collections.shuffle(shuffledTiles);
+            tilesRemaining.clear();
+            tilesRemaining.addAll(shuffledTiles);
+            elementsToSwap.clear();
+
+            recallButton.setText("Recall");
+            swapTilesButton.setText("Swap Tiles");
+            isSwapping = false;
+            swapTilesButton.setOnAction((e) -> attemptSwap());
+            recallButton.setOnAction((e) -> recallTiles());
+
+            playerConsecutiveZeroScoringTurns++;
+            if (!gameOver(playerHand, playerConsecutiveZeroScoringTurns))
+            {
+                makeCPUMove();
+                enablePlayerActions();
+            }
+            else
+            {
+                cleanup();
+            }
+        });
+    }
+
+    private void disablePlayerActions()
+    {
+        moveButton.setDisable(true);
+        passButton.setDisable(true);
+        swapTilesButton.setDisable(true);
+        if (!isSwapping)
+        {
+            recallButton.setDisable(true);
+        }
+    }
+
+    private void enablePlayerActions()
+    {
+        moveButton.setDisable(false);
+        passButton.setDisable(false);
+        swapTilesButton.setDisable(false);
+        recallButton.setDisable(false);
+    }
+
+    private boolean gameOver(List<Character> hand, int consecTurns)
+    {
+        return (hand.isEmpty()) || consecTurns == 3;
+
+    }
+
+    private void cleanup()
+    {
+        statusMessage.setText("Game over.");
     }
 }
