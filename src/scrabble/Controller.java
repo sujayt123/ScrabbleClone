@@ -723,11 +723,12 @@ public class Controller implements Initializable {
         else
         {
             System.out.println("Could not find anything to play with these characters");
+            return;
         }
 
         List<List<Character>> transposeOfUpdatedModel = forEachBoardSquareAsNestedList((r, c) -> mainModel.get(c).get(r));
         computeCrossCheckSets(verticalCrossCheckSetsForModel, mainModel, getCoordinatesListForBoard());
-        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, transposeOfMainModel, getCoordinatesListForBoard());
+        computeCrossCheckSets(horizontalCrossCheckSetsForModelTranspose, transposeOfUpdatedModel, getCoordinatesListForBoard());
         int score = Integer.parseInt(cpuScore.getText().split(":")[1]);
         score += bestCPUPlay.getValue().getValue();
         cpuScore.setText("CPU Score:" + score);
@@ -995,5 +996,11 @@ public class Controller implements Initializable {
         int tw_count = wordScoreTuple.getValue().getValue();
 
         return (int) (baseScore * Math.pow(2, dw_count) * Math.pow(3, tw_count));
+    }
+
+    public void passTurn()
+    {
+        recallTiles();
+        makeCPUMove();
     }
 }
